@@ -99,7 +99,7 @@ class Units(list):
 
     @property
     def first(self) -> Unit:
-        assert self, "Units object is empty"
+        # assert self, "Units object is empty"
         return self[0]
 
     def take(self, n: int) -> Units:
@@ -110,7 +110,7 @@ class Units(list):
 
     @property
     def random(self) -> Unit:
-        assert self, "Units object is empty"
+        # assert self, "Units object is empty"
         return random.choice(self)
 
     def random_or(self, other: any) -> Unit:
@@ -171,9 +171,9 @@ class Units(list):
             # Contains the distance between the marine and the closest zergling
 
         :param position: """
-        assert self, "Units object is empty"
+        # assert self, "Units object is empty"
         if isinstance(position, Unit):
-            return min(self._bot_object._distance_squared_unit_to_unit(unit, position) for unit in self) ** 0.5
+            return math.sqrt(min(self._bot_object._distance_squared_unit_to_unit(unit, position) for unit in self))
         return min(self._bot_object._distance_units_to_pos(self, position))
 
     def furthest_distance_to(self, position: Union[Unit, Point2, Point3]) -> float:
@@ -190,9 +190,9 @@ class Units(list):
                 # Contains the distance between the marine and the furthest away zergling
 
         :param position: """
-        assert self, "Units object is empty"
+        # assert self, "Units object is empty"
         if isinstance(position, Unit):
-            return max(self._bot_object._distance_squared_unit_to_unit(unit, position) for unit in self) ** 0.5
+            return math.sqrt(max(self._bot_object._distance_squared_unit_to_unit(unit, position) for unit in self))
         return max(self._bot_object._distance_units_to_pos(self, position))
 
     def closest_to(self, position: Union[Unit, Point2, Point3]) -> Unit:
@@ -208,7 +208,7 @@ class Units(list):
                 # Contains the zergling that is closest to the target marine
 
         :param position: """
-        assert self, "Units object is empty"
+        # assert self, "Units object is empty"
         if isinstance(position, Unit):
             return min(
                 (unit1 for unit1 in self),
@@ -231,7 +231,7 @@ class Units(list):
                 # Contains the zergling that is furthest away to the target marine
 
         :param position: """
-        assert self, "Units object is empty"
+        # assert self, "Units object is empty"
         if isinstance(position, Unit):
             return max(
                 (unit1 for unit1 in self),
@@ -258,7 +258,7 @@ class Units(list):
         """
         # assert self, "Units object is empty"
         if isinstance(position, Unit):
-            distance_squared = distance ** 2
+            distance_squared = distance * distance
             return self.subgroup(
                 unit
                 for unit in self
@@ -294,34 +294,6 @@ class Units(list):
         distances = self._bot_object._distance_units_to_pos(self, position)
         return self.subgroup(unit for unit, dist in zip(self, distances) if distance < dist)
 
-    def nearby(self, distance: int, target_unit: Unit) -> Units:
-        """
-        The same as "closer_than" but should be a bit faster because it takes only Unit as argument.
-
-        :param distance:
-        :param target_unit:
-        """
-        distance_squared = distance * distance
-        return self.subgroup(
-            unit
-            for unit in self
-            if self._bot_object._distance_squared_unit_to_unit(unit, target_unit) < distance_squared
-        )
-
-    def faraway(self, distance: int, target_unit: Unit) -> Units:
-        """
-        The same as "further_than" but should be a bit faster because it takes only Unit as argument.
-
-        :param distance:
-        :param target_unit:        
-        """
-        distance_squared = distance * distance
-        return self.subgroup(
-            unit
-            for unit in self
-            if distance_squared < self._bot_object._distance_squared_unit_to_unit(unit, target_unit)
-        )
-
     def in_distance_between(
         self, position: Union[Unit, Point2, Tuple[float, float]], distance1: float, distance2: float
     ) -> Units:
@@ -340,10 +312,10 @@ class Units(list):
         :param distance1:
         :param distance2:
         """
-        assert self, "Units object is empty"
+        # assert self, "Units object is empty"
         if isinstance(position, Unit):
-            distance1_squared = distance1 ** 2
-            distance2_squared = distance2 ** 2
+            distance1_squared = distance1 * distance1
+            distance2_squared = distance2 * distance2
             return self.subgroup(
                 unit
                 for unit in self
@@ -369,7 +341,7 @@ class Units(list):
         :param position:
         :param n:
         """
-        assert self, "Units object is empty"
+        # assert self, "Units object is empty"
         return self.subgroup(self._list_sorted_by_distance_to(position)[:n])
 
     def furthest_n_units(self, position: Union[Unit, Point2, np.ndarray], n: int) -> Units:
@@ -387,7 +359,7 @@ class Units(list):
         :param position:
         :param n:
         """
-        assert self, "Units object is empty"
+        # assert self, "Units object is empty"
         return self.subgroup(self._list_sorted_by_distance_to(position)[-n:])
 
     def in_distance_of_group(self, other_units: Units, distance: float) -> Units:
@@ -396,11 +368,11 @@ class Units(list):
         :param other_units:
         :param distance:
         """
-        assert other_units, "Other units object is empty"
+        # assert other_units, "Other units object is empty"
         # Return self because there are no enemies
         if not self:
             return self
-        distance_squared = distance ** 2
+        distance_squared = distance * distance
         if len(self) == 1:
             if any(
                 self._bot_object._distance_squared_unit_to_unit(self[0], target) < distance_squared
@@ -426,8 +398,8 @@ class Units(list):
         Loops over all units in self, then loops over all units in other_units and calculates the shortest distance. Returns the units that is closest to any unit of 'other_units'.
 
         :param other_units: """
-        assert self, "Units object is empty"
-        assert other_units, "Given units object is empty"
+        # assert self, "Units object is empty"
+        # assert other_units, "Given units object is empty"
         return min(
             self,
             key=lambda self_unit: min(
@@ -485,7 +457,7 @@ class Units(list):
 
         :param pred:
         """
-        assert callable(pred), "Function is not callable"
+        # assert callable(pred), "Function is not callable"
         return self.subgroup(filter(pred, self))
 
     def sorted(self, key: callable, reverse: bool = False) -> Units:
@@ -590,10 +562,12 @@ class Units(list):
 
         :param other:
         """
+        '''
         assert isinstance(other, set), (
             f"Please use a set as this filter function is already fairly slow. For example"
             + " 'self.units.same_tech({UnitTypeId.LAIR})'"
         )
+        '''
         tech_alias_types: Set[int] = {u.value for u in other}
         unit_data = self._bot_object._game_data.units
         for unitType in other:
@@ -640,7 +614,7 @@ class Units(list):
     @property
     def center(self) -> Point2:
         """ Returns the central position of all units. """
-        assert self, f"Units object is empty"
+        # assert self, f"Units object is empty"
         amount = self.amount
         return Point2(
             (
@@ -746,11 +720,14 @@ class UnitSelection(Units):
         if isinstance(selection, (UnitTypeId)):
             super().__init__((unit for unit in parent if unit.type_id == selection), parent._bot_object)
         elif isinstance(selection, set):
-            assert all(isinstance(t, UnitTypeId) for t in selection), f"Not all ids in selection are of type UnitTypeId"
+            # assert all(isinstance(t, UnitTypeId) for t in selection), f"Not all ids in selection are of type UnitTypeId"
             super().__init__((unit for unit in parent if unit.type_id in selection), parent._bot_object)
         elif selection is None:
             super().__init__((unit for unit in parent), parent._bot_object)
         else:
+            '''
             assert isinstance(
                 selection, (UnitTypeId, set)
             ), f"selection is not None or of type UnitTypeId or Set[UnitTypeId]"
+            '''
+            pass

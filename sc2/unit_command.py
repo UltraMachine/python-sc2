@@ -19,12 +19,14 @@ class UnitCommand:
         :param target:
         :param queue:
         """
-        assert ability in AbilityId, f"ability {ability} is not in AbilityId"
-        assert isinstance(unit, unit_module.Unit), f"unit {unit} is of type {type(unit)}"
+        # assert ability in AbilityId, f"ability {ability} is not in AbilityId"
+        # assert isinstance(unit, unit_module.Unit), f"unit {unit} is of type {type(unit)}"
+        '''
         assert target is None or isinstance(
             target, (Point2, unit_module.Unit)
         ), f"target {target} is of type {type(target)}"
-        assert isinstance(queue, bool), f"queue flag {queue} is of type {type(queue)}"
+        '''
+        # assert isinstance(queue, bool), f"queue flag {queue} is of type {type(queue)}"
         self.ability = ability
         self.unit = unit
         self.target = target

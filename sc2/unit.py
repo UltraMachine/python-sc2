@@ -444,7 +444,7 @@ class Unit:
 
         :param p: """
         if isinstance(p, Unit):
-            return self._bot_object._distance_squared_unit_to_unit(self, p) ** 0.5
+            return math.sqrt(self._bot_object._distance_squared_unit_to_unit(self, p))
         return self._bot_object.distance_math_hypot(self.position_tuple, p)
 
     def target_in_range(self, target: Unit, bonus_distance: Union[int, float] = 0) -> bool:
@@ -460,9 +460,10 @@ class Unit:
             unit_attack_range = self.air_range
         else:
             return False
+        distance = (self.radius + target.radius + unit_attack_range + bonus_distance)
         return (
             self._bot_object._distance_squared_unit_to_unit(self, target)
-            <= (self.radius + target.radius + unit_attack_range + bonus_distance) ** 2
+            <= distance*distance
         )
 
     def can_attack_target(self, target: Unit) -> bool:
@@ -506,13 +507,14 @@ class Unit:
         :param target:
         :param bonus_distance: """
         cast_range = self._bot_object._game_data.abilities[ability_id.value]._proto.cast_range
-        assert cast_range > 0, f"Checking for an ability ({ability_id}) that has no cast range"
+        # assert cast_range > 0, f"Checking for an ability ({ability_id}) that has no cast range"
         ability_target_type = self._bot_object._game_data.abilities[ability_id.value]._proto.target
         # For casting abilities that target other units, like transfuse, feedback, snipe, yamato
         if ability_target_type in {Target.Unit.value, Target.PointOrUnit.value} and isinstance(target, Unit):
+            distance = (cast_range + self.radius + target.radius + bonus_distance)
             return (
                 self._bot_object._distance_squared_unit_to_unit(self, target)
-                <= (cast_range + self.radius + target.radius + bonus_distance) ** 2
+                <= distance*distance
             )
         # For casting abilities on the ground, like queen creep tumor, ravager bile, HT storm
         if ability_target_type in {Target.Point.value, Target.PointOrUnit.value} and isinstance(
@@ -891,7 +893,7 @@ class Unit:
 
     def has_buff(self, buff: BuffId) -> bool:
         """ Checks if unit has buff 'buff'. """
-        assert isinstance(buff, BuffId), f"{buff} is no BuffId"
+        # assert isinstance(buff, BuffId), f"{buff} is no BuffId"
         return buff in self.buffs
 
     def train(self, unit: UnitTypeId, queue: bool = False) -> UnitCommand:

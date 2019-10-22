@@ -189,7 +189,7 @@ class BotAI(DistanceCalculation):
 
         :param alert_code:
         """
-        assert isinstance(alert_code, Alert), f"alert_code {alert_code} is no Alert"
+        # assert isinstance(alert_code, Alert), f"alert_code {alert_code} is no Alert"
         return alert_code.value in self.state.alerts
 
     @property
@@ -351,7 +351,7 @@ class BotAI(DistanceCalculation):
             }
             building = start_townhall_type[self.race]
 
-        assert isinstance(building, UnitTypeId), f"{building} is no UnitTypeId"
+        # assert isinstance(building, UnitTypeId), f"{building} is no UnitTypeId"
 
         if not location:
             location = await self.get_next_expansion()
@@ -683,9 +683,9 @@ class BotAI(DistanceCalculation):
         :param target:
         :param only_check_energy_and_cooldown:
         :param cached_abilities_of_unit: """
-        assert isinstance(unit, Unit), f"{unit} is no Unit object"
-        assert isinstance(ability_id, AbilityId), f"{ability_id} is no AbilityId"
-        assert isinstance(target, (type(None), Unit, Point2, Point3))
+        # assert isinstance(unit, Unit), f"{unit} is no Unit object"
+        # assert isinstance(ability_id, AbilityId), f"{ability_id} is no AbilityId"
+        # assert isinstance(target, (type(None), Unit, Point2, Point3))
         # check if unit has enough energy to cast or if ability is on cooldown
         if cached_abilities_of_unit:
             abilities = cached_abilities_of_unit
@@ -763,7 +763,7 @@ class BotAI(DistanceCalculation):
         :param building:
         :param position: """
         building_type = type(building)
-        assert building_type in {AbilityData, AbilityId, UnitTypeId}
+        # assert building_type in {AbilityData, AbilityId, UnitTypeId}
         if building_type == UnitTypeId:
             building = self._game_data.units[building.value].creation_ability
         elif building_type == AbilityId:
@@ -795,8 +795,8 @@ class BotAI(DistanceCalculation):
         :param random_alternative:
         :param placement_step: """
 
-        assert isinstance(building, (AbilityId, UnitTypeId))
-        assert isinstance(near, Point2), f"{near} is no Point2 object"
+        # assert isinstance(building, (AbilityId, UnitTypeId))
+        # assert isinstance(near, Point2), f"{near} is no Point2 object"
 
         if isinstance(building, UnitTypeId):
             building = self._game_data.units[building.value].creation_ability
@@ -857,7 +857,7 @@ class BotAI(DistanceCalculation):
 
         :param upgrade_type:
         """
-        assert isinstance(upgrade_type, UpgradeId), f"{upgrade_type} is no UpgradeId"
+        # assert isinstance(upgrade_type, UpgradeId), f"{upgrade_type} is no UpgradeId"
         if upgrade_type in self.state.upgrades:
             return 1
         level = None
@@ -929,7 +929,7 @@ class BotAI(DistanceCalculation):
         :param random_alternative:
         :param placement_step: """
 
-        assert isinstance(near, (Unit, Point2, Point3))
+        # assert isinstance(near, (Unit, Point2, Point3))
         if isinstance(near, Unit):
             near = near.position
         near = near.to2
@@ -1091,14 +1091,16 @@ class BotAI(DistanceCalculation):
 
         :param structure_type:
         """
+        '''
         assert isinstance(
             structure_type, (int, UnitTypeId)
         ), f"Needs to be int or UnitTypeId, but was: {type(structure_type)}"
+        '''
         if isinstance(structure_type, int):
             structure_type_value = structure_type
         else:
             structure_type_value = structure_type.value
-        assert structure_type_value, f"structure_type can not be 0 or NOTAUNIT, but was: {structure_type_value}"
+        # assert structure_type_value, f"structure_type can not be 0 or NOTAUNIT, but was: {structure_type_value}"
 
         return_value = 0
         for structure in self.structures:
@@ -1163,9 +1165,11 @@ class BotAI(DistanceCalculation):
 
         :param upgrade_type:
         """
+        '''
         assert (
             upgrade_type in UPGRADE_RESEARCHED_FROM
         ), f"Could not find upgrade {upgrade_type} in 'research from'-dictionary"
+        '''
 
         # Not affordable
         if not self.can_afford(upgrade_type):
@@ -1323,7 +1327,7 @@ class BotAI(DistanceCalculation):
             await self.chat_send("Hello, this is a message from my bot!")
 
         :param message: """
-        assert isinstance(message, str), f"{message} is not a string"
+        # assert isinstance(message, str), f"{message} is not a string"
         await self._client.chat_send(message, False)
 
     def in_map_bounds(self, pos: Union[Point2, tuple]) -> bool:
@@ -1337,7 +1341,7 @@ class BotAI(DistanceCalculation):
         Caution: terrain height is different from a unit's z-coordinate.
 
         :param pos: """
-        assert isinstance(pos, (Point2, Point3, Unit)), f"pos is not of type Point2, Point3 or Unit"
+        # assert isinstance(pos, (Point2, Point3, Unit)), f"pos is not of type Point2, Point3 or Unit"
         pos = pos.position.to2.rounded
         return self._game_info.terrain_height[pos]
 
@@ -1345,7 +1349,7 @@ class BotAI(DistanceCalculation):
         """ Returns terrain z-height at a position.
 
         :param pos: """
-        assert isinstance(pos, (Point2, Point3, Unit)), f"pos is not of type Point2, Point3 or Unit"
+        # assert isinstance(pos, (Point2, Point3, Unit)), f"pos is not of type Point2, Point3 or Unit"
         pos = pos.position.to2.rounded
         return -16 + 32 * self._game_info.terrain_height[pos] / 255
 
@@ -1356,7 +1360,7 @@ class BotAI(DistanceCalculation):
         https://github.com/Dentosal/python-sc2/blob/master/sc2/game_info.py#L17-L18
 
         :param pos: """
-        assert isinstance(pos, (Point2, Point3, Unit)), f"pos is not of type Point2, Point3 or Unit"
+        # assert isinstance(pos, (Point2, Point3, Unit)), f"pos is not of type Point2, Point3 or Unit"
         pos = pos.position.to2.rounded
         return self._game_info.placement_grid[pos] == 1
 
@@ -1364,7 +1368,7 @@ class BotAI(DistanceCalculation):
         """ Returns True if a ground unit can pass through a grid point.
 
         :param pos: """
-        assert isinstance(pos, (Point2, Point3, Unit)), f"pos is not of type Point2, Point3 or Unit"
+        # assert isinstance(pos, (Point2, Point3, Unit)), f"pos is not of type Point2, Point3 or Unit"
         pos = pos.position.to2.rounded
         return self._game_info.pathing_grid[pos] == 1
 
@@ -1373,7 +1377,7 @@ class BotAI(DistanceCalculation):
 
         :param pos: """
         # more info: https://github.com/Blizzard/s2client-proto/blob/9906df71d6909511907d8419b33acc1a3bd51ec0/s2clientprotocol/spatial.proto#L19
-        assert isinstance(pos, (Point2, Point3, Unit)), f"pos is not of type Point2, Point3 or Unit"
+        # assert isinstance(pos, (Point2, Point3, Unit)), f"pos is not of type Point2, Point3 or Unit"
         pos = pos.position.to2.rounded
         return self.state.visibility[pos] == 2
 
@@ -1381,7 +1385,7 @@ class BotAI(DistanceCalculation):
         """ Returns True if there is creep on the grid point.
 
         :param pos: """
-        assert isinstance(pos, (Point2, Point3, Unit)), f"pos is not of type Point2, Point3 or Unit"
+        # assert isinstance(pos, (Point2, Point3, Unit)), f"pos is not of type Point2, Point3 or Unit"
         pos = pos.position.to2.rounded
         return self.state.creep[pos] == 1
 
