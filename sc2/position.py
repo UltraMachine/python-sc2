@@ -39,7 +39,9 @@ class Pointlike(tuple):
         This is to speed up the sorting process.
 
         :param p2: """
-        return (self[0] - p2[0]) ** 2 + (self[1] - p2[1]) ** 2
+        dx = self[0] - p2[0]
+        dy = self[1] - p2[1]
+        return dx * dx + dy * dy
 
     def is_closer_than(self, distance: Union[int, float], p: Union[Unit, Point2]) -> bool:
         """ Check if another point (or unit) is closer than the given distance.
@@ -207,16 +209,16 @@ class Point2(Pointlike):
         :param p:
         :param r: """
         assert self != p, f"self is equal to p"
-        distanceBetweenPoints = self.distance_to(p)
-        assert r >= distanceBetweenPoints / 2
+        halfDistanceBetweenPoints = self.distance_to(p) / 2
+        assert r >= halfDistanceBetweenPoints
         # remaining distance from center towards the intersection, using pythagoras
-        remainingDistanceFromCenter = (r ** 2 - (distanceBetweenPoints / 2) ** 2) ** 0.5
+        remainingDistanceFromCenter = math.sqrt(r * r - halfDistanceBetweenPoints * halfDistanceBetweenPoints)
         # center of both points
         offsetToCenter = Point2(((p.x - self.x) / 2, (p.y - self.y) / 2))
         center = self.offset(offsetToCenter)
 
         # stretch offset vector in the ratio of remaining distance from center to intersection
-        vectorStretchFactor = remainingDistanceFromCenter / (distanceBetweenPoints / 2)
+        vectorStretchFactor = remainingDistanceFromCenter / halfDistanceBetweenPoints
         v = offsetToCenter
         offsetToCenterStretched = Point2((v.x * vectorStretchFactor, v.y * vectorStretchFactor))
 

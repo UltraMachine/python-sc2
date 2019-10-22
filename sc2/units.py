@@ -1,7 +1,7 @@
 from __future__ import annotations
 import random
 import warnings
-import math
+from math import sqrt
 from itertools import chain
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union, TYPE_CHECKING
 
@@ -173,7 +173,7 @@ class Units(list):
         :param position: """
         assert self, "Units object is empty"
         if isinstance(position, Unit):
-            return min(self._bot_object._distance_squared_unit_to_unit(unit, position) for unit in self) ** 0.5
+            return sqrt(min(self._bot_object._distance_squared_unit_to_unit(unit, position) for unit in self))
         return min(self._bot_object._distance_units_to_pos(self, position))
 
     def furthest_distance_to(self, position: Union[Unit, Point2, Point3]) -> float:
@@ -192,7 +192,7 @@ class Units(list):
         :param position: """
         assert self, "Units object is empty"
         if isinstance(position, Unit):
-            return max(self._bot_object._distance_squared_unit_to_unit(unit, position) for unit in self) ** 0.5
+            return sqrt(max(self._bot_object._distance_squared_unit_to_unit(unit, position) for unit in self))
         return max(self._bot_object._distance_units_to_pos(self, position))
 
     def closest_to(self, position: Union[Unit, Point2, Point3]) -> Unit:
@@ -258,7 +258,7 @@ class Units(list):
         """
         # assert self, "Units object is empty"
         if isinstance(position, Unit):
-            distance_squared = distance ** 2
+            distance_squared = distance * distance
             return self.subgroup(
                 unit
                 for unit in self
@@ -342,8 +342,8 @@ class Units(list):
         """
         assert self, "Units object is empty"
         if isinstance(position, Unit):
-            distance1_squared = distance1 ** 2
-            distance2_squared = distance2 ** 2
+            distance1_squared = distance1 * distance1
+            distance2_squared = distance2 * distance2
             return self.subgroup(
                 unit
                 for unit in self
@@ -400,7 +400,7 @@ class Units(list):
         # Return self because there are no enemies
         if not self:
             return self
-        distance_squared = distance ** 2
+        distance_squared = distance * distance
         if len(self) == 1:
             if any(
                 self._bot_object._distance_squared_unit_to_unit(self[0], target) < distance_squared
