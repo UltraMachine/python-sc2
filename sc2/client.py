@@ -466,7 +466,7 @@ class Client(Protocol):
         """ Draws a box with p_min and p_max as corners of the box. """
         self._debug_boxes.append(DrawItemBox(start_point=p_min, end_point=p_max, color=color))
 
-    def debug_box2_out(
+    def debug_cube_out(
         self,
         pos: Union[Unit, Point2, Point3],
         half_vertex_length: float = 0.25,
@@ -480,6 +480,14 @@ class Client(Protocol):
         p0 = pos + Point3((-half_vertex_length, -half_vertex_length, -half_vertex_length))
         p1 = pos + Point3((half_vertex_length, half_vertex_length, half_vertex_length))
         self._debug_boxes.append(DrawItemBox(start_point=p0, end_point=p1, color=color))
+
+    def debug_box2_out(
+        self,
+        pos: Union[Unit, Point2, Point3],
+        half_vertex_length: float = 0.25,
+        color: Union[tuple, list, Point3] = None,
+    ):
+        return self.debug_cube_out(pos, half_vertex_length, color)
 
     def debug_sphere_out(
         self, p: Union[Unit, Point2, Point3], r: Union[int, float], color: Union[tuple, list, Point3] = None
