@@ -315,9 +315,15 @@ class Unit:
     @property
     def health_percentage(self) -> Union[int, float]:
         """ Returns the percentage of health the unit has. Does not include shields. """
-        if self._proto.health_max == 0:
+        try:
+            return self._proto.health / self._proto.health_max
+        except ZeroDivisionError:
             return 0
-        return self._proto.health / self._proto.health_max
+
+    @property
+    def health_damage(self) -> Union[int, float]:
+        """ Returns damage which was taken by unit's health. Does not include shields. """
+        return self._proto.health_max - self._proto.health
 
     @property
     def shield(self) -> Union[int, float]:
@@ -332,9 +338,38 @@ class Unit:
     @property
     def shield_percentage(self) -> Union[int, float]:
         """ Returns the percentage of shield points the unit has. Returns 0 for non-protoss units. """
-        if self._proto.shield_max == 0:
+        try:
+            return self._proto.shield / self._proto.shield_max
+        except ZeroDivisionError:
             return 0
-        return self._proto.shield / self._proto.shield_max
+
+    @property
+    def shield_damage(self) -> Union[int, float]:
+        """ Returns damage which was taken by unit's shield. Returns 0 for non-protoss units. """
+        return self._proto.shield_max - self._proto.shield
+
+    @property
+    def life(self) -> Union[int, float]:
+        """ Returns the hit points (health + shields) of the unit. """
+        return (self._proto.health + self._proto.shield)
+
+    @property
+    def life_max(self) -> Union[int, float]:
+        """ Returns the maximum hit points (health + shields) of the unit. """
+        return (self._proto.health_max + self._proto.shield_max)
+
+    @property
+    def life_percentage(self) -> Union[int, float]:
+        """ Returns the percentage of hit points (health + shields) the unit has. """
+        try:
+            return (self._proto.health + self._proto.shield) / (self._proto.health_max + self._proto.shield_max)
+        except ZeroDivisionError:
+            return 0
+
+    @property
+    def life_damage(self) -> Union[int, float]:
+        """ Returns damage which was taken by unit's hit points (health + shield). """
+        return (self._proto.health_max + self._proto.shield_max) - (self._proto.health + self._proto.shield)
 
     @property
     def energy(self) -> Union[int, float]:
@@ -349,9 +384,10 @@ class Unit:
     @property
     def energy_percentage(self) -> Union[int, float]:
         """ Returns the percentage of amount of energy the unit has. Returns 0 for units without energy. """
-        if self._proto.energy_max == 0:
+        try:
+            return self._proto.energy / self._proto.energy_max
+        except ZeroDivisionError:
             return 0
-        return self._proto.energy / self._proto.energy_max
 
     @property
     def is_snapshot(self) -> bool:
@@ -428,6 +464,38 @@ class Unit:
             self._bot_object._distance_squared_unit_to_unit(self, target)
             <= (self.radius + target.radius + unit_attack_range + bonus_distance) ** 2
         )
+
+    def can_attack_target(self, target: Unit) -> bool:
+        """ Instead of "target_in_range" only checks ability to attack
+
+        :param target: """
+        if self.can_attack_ground and not target.is_flying:
+            return True
+        elif self.can_attack_air and (target.is_flying or target.type_id == UNIT_COLOSSUS):
+            return True
+        return False
+
+    def attack_range(self, target: Unit) -> Union[int, float]:
+        """ Returns weapon range for current target. (range can be different for air and ground weapon)
+        Returns 0 if unit can't attack target.
+
+        :param target: """
+        if self.can_attack_ground and not target.is_flying:
+            return self.ground_range
+        elif self.can_attack_air and (target.is_flying or target.type_id == UNIT_COLOSSUS):
+            return self.air_range
+        return 0
+
+    def target_dps(self, target: Unit) -> Union[int, float]:
+        """ Returns weapon dps for current target.
+        Returns 0 if unit can't attack target.
+
+        :param target: """
+        if self.can_attack_ground and not target.is_flying:
+            return self.ground_dps
+        elif self.can_attack_air and (target.is_flying or target.type_id == UNIT_COLOSSUS):
+            return self.air_dps
+        return 0
 
     def in_ability_cast_range(
         self, ability_id: AbilityId, target: Union[Unit, Point2], bonus_distance: float = 0
@@ -661,6 +729,11 @@ class Unit:
     def is_idle(self) -> bool:
         """ Checks if unit is idle. """
         return not self._proto.orders
+
+    @property
+    def is_idle_with_reactor(self) -> bool:
+        """ Checks if building with reactor can train one more unit. """
+        return len(self._proto.orders) < 2
 
     def is_using_ability(self, abilities: Union[AbilityId, Set[AbilityId]]) -> bool:
         """ Check if the unit is using one of the given abilities.
@@ -934,6 +1007,28 @@ class Unit:
         :param queue:
         """
         return self(AbilityId.STOP, queue=queue)
+
+    def cancel(self, queue: bool = False) -> UnitCommand:
+        """ Cancels construction of building, or unit training, or upgrade researching in building.
+
+        :param queue:
+        """
+        if self.is_ready:
+            if self.type_id in {
+                    UnitTypeId.COMMANDCENTER,
+                    UnitTypeId.ORBITALCOMMAND,
+                    UnitTypeId.PLANETARYFORTRESS,
+                    UnitTypeId.HATCHERY,
+                    UnitTypeId.LAIR,
+                    UnitTypeId.HIVE,
+                    UnitTypeId.NEXUS
+                }:
+                ability = AbilityId.CANCEL_QUEUECANCELTOSELECTION
+            else:
+                ability = AbilityId.CANCEL_QUEUE5
+        else:
+            ability = AbilityId.CANCEL_BUILDINPROGRESS
+        return self(ability, queue=queue)
 
     def patrol(self, position: Union[Point2, Point3], queue: bool = False) -> UnitCommand:
         """ Orders a unit to patrol between position it has when the command starts and the target position.
