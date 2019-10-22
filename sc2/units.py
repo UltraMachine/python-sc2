@@ -1,7 +1,7 @@
 from __future__ import annotations
 import random
 import warnings
-import math
+from math import sqrt
 from itertools import chain
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union, TYPE_CHECKING
 
@@ -173,7 +173,7 @@ class Units(list):
         :param position: """
         # assert self, "Units object is empty"
         if isinstance(position, Unit):
-            return math.sqrt(min(self._bot_object._distance_squared_unit_to_unit(unit, position) for unit in self))
+            return sqrt(min(self._bot_object._distance_squared_unit_to_unit(unit, position) for unit in self))
         return min(self._bot_object._distance_units_to_pos(self, position))
 
     def furthest_distance_to(self, position: Union[Unit, Point2, Point3]) -> float:
@@ -192,7 +192,7 @@ class Units(list):
         :param position: """
         # assert self, "Units object is empty"
         if isinstance(position, Unit):
-            return math.sqrt(max(self._bot_object._distance_squared_unit_to_unit(unit, position) for unit in self))
+            return sqrt(max(self._bot_object._distance_squared_unit_to_unit(unit, position) for unit in self))
         return max(self._bot_object._distance_units_to_pos(self, position))
 
     def closest_to(self, position: Union[Unit, Point2, Point3]) -> Unit:
@@ -293,6 +293,34 @@ class Units(list):
             )
         distances = self._bot_object._distance_units_to_pos(self, position)
         return self.subgroup(unit for unit, dist in zip(self, distances) if distance < dist)
+
+   def nearby(self, distance: int, target_unit: Unit) -> Units:
+        """
+        The same as "closer_than" but should be a bit faster because it takes only Unit as argument.
+
+        :param distance:
+        :param target_unit:
+        """
+        distance_squared = distance * distance
+        return self.subgroup(
+            unit
+            for unit in self
+            if self._bot_object._distance_squared_unit_to_unit(unit, target_unit) < distance_squared
+        )
+
+    def faraway(self, distance: int, target_unit: Unit) -> Units:
+        """
+        The same as "further_than" but should be a bit faster because it takes only Unit as argument.
+
+        :param distance:
+        :param target_unit:        
+        """
+        distance_squared = distance * distance
+        return self.subgroup(
+            unit
+            for unit in self
+            if distance_squared < self._bot_object._distance_squared_unit_to_unit(unit, target_unit)
+        )
 
     def in_distance_between(
         self, position: Union[Unit, Point2, Tuple[float, float]], distance1: float, distance2: float

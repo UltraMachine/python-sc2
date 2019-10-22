@@ -8,7 +8,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 from scipy.spatial.distance import pdist, cdist
-import math
+from math import hypot
 import numpy as np
 
 from typing import Dict, Tuple, Iterable, Generator
@@ -154,10 +154,10 @@ class DistanceCalculation:
     # Fast and simple calculation functions
 
     def distance_math_hypot(self, p1: Tuple[float, float], p2: Tuple[float, float]):
-        return math.hypot(p1[0] - p2[0], p1[1] - p2[1])
+        return hypot(p1[0] - p2[0], p1[1] - p2[1])
 
     def distance_math_hypot_squared(self, p1: Tuple[float, float], p2: Tuple[float, float]):
-        distance = math.hypot(p1[0] - p2[0], p1[1] - p2[1])
+        distance = hypot(p1[0] - p2[0], p1[1] - p2[1])
         return distance * distance
 
     def _distance_squared_unit_to_unit_method0(self, unit1: Unit, unit2: Unit) -> float:
