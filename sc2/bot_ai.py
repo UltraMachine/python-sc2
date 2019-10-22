@@ -386,6 +386,31 @@ class BotAI(DistanceCalculation):
 
         return closest
 
+    async def get_enemy_expansion(self) -> Optional[Point2]:
+        """Find next expansion location of enemy."""
+
+        closest = None
+        distance = math.inf
+        for el in self.expansion_locations:
+
+            def is_near_to_expansion(t):
+                return t.distance_to(el) < self.EXPANSION_GAP_THRESHOLD
+
+            if any(map(is_near_to_expansion, self.enemy_structures)):
+                # already taken
+                continue
+
+            startp = self._game_info.start_locations[0]
+            d = await self._client.query_pathing(startp, el)
+            if d is None:
+                continue
+
+            if d < distance:
+                distance = d
+                closest = el
+
+        return closest
+
     async def distribute_workers(self, resource_ratio: float = 2):
         """
         Distributes workers across all the bases taken.
@@ -417,27 +442,27 @@ class BotAI(DistanceCalculation):
             # perfect amount of workers, skip mining place
             if not difference:
                 continue
-            if mining_place.has_vespene:
-                # get all workers that target the gas extraction site
-                # or are on their way back from it
-                local_workers = self.workers.filter(
-                    lambda unit: unit.order_target == mining_place.tag
-                    or (unit.is_carrying_vespene and unit.order_target == bases.closest_to(mining_place).tag)
-                )
-            else:
-                # get tags of minerals around expansion
-                local_minerals_tags = {
-                    mineral.tag for mineral in self.mineral_field if mineral.distance_to(mining_place) <= 8
-                }
-                # get all target tags a worker can have
-                # tags of the minerals he could mine at that base
-                # get workers that work at that gather site
-                local_workers = self.workers.filter(
-                    lambda unit: unit.order_target in local_minerals_tags
-                    or (unit.is_carrying_minerals and unit.order_target == mining_place.tag)
-                )
             # too many workers
-            if difference > 0:
+            elif difference > 0:
+                if mining_place.has_vespene:
+                    # get all workers that target the gas extraction site
+                    # or are on their way back from it
+                    local_workers = self.workers.filter(
+                        lambda unit: unit.order_target == mining_place.tag
+                        or (unit.is_carrying_vespene and unit.order_target == bases.closest_to(mining_place).tag)
+                    )
+                else:
+                    # get tags of minerals around expansion
+                    local_minerals_tags = {
+                        mineral.tag for mineral in self.mineral_field if mineral.distance_to(mining_place) <= 8
+                    }
+                    # get all target tags a worker can have
+                    # tags of the minerals he could mine at that base
+                    # get workers that work at that gather site
+                    local_workers = self.workers.filter(
+                        lambda unit: unit.order_target in local_minerals_tags
+                        or (unit.is_carrying_minerals and unit.order_target == mining_place.tag)
+                    )
                 for worker in local_workers[:difference]:
                     worker_pool.append(worker)
             # too few workers
@@ -467,7 +492,7 @@ class BotAI(DistanceCalculation):
                 if not possible_mining_places:
                     possible_mining_places = deficit_mining_places
                 # find closest mining place
-                current_place = min(deficit_mining_places, key=lambda place: place.distance_to(worker))
+                current_place = min(possible_mining_places, key=lambda place: place.distance_to(worker))
                 # remove it from the list
                 deficit_mining_places.remove(current_place)
                 # if current place is a gas extraction site, go there
@@ -608,7 +633,7 @@ class BotAI(DistanceCalculation):
             cost = self._game_data.calculate_ability_cost(item_id)
         return cost
 
-    def can_afford(self, item_id: Union[UnitTypeId, UpgradeId, AbilityId], check_supply_cost: bool = True) -> bool:
+    def can_afford(self, item_id: Union[UnitTypeId, UpgradeId, AbilityId], amount: Union[int, float] = 1, check_supply: bool = True) -> bool:
         """ Tests if the player has enough resources to build a unit or structure.
 
         Example::
@@ -621,17 +646,18 @@ class BotAI(DistanceCalculation):
         Example::
 
             # Current state: we have 150 minerals and one command center and a barracks
-            can_afford_morph = self.can_afford(UnitTypeId.ORBITALCOMMAND, check_supply_cost=False)
+            can_afford_morph = self.can_afford(UnitTypeId.ORBITALCOMMAND, check_supply=False)
             # Will be 'True' although the API reports that an orbital is worth 550 minerals, but the morph cost is only 150 minerals
 
         :param item_id:
-        :param check_supply_cost: """
+        :param amount:
+        :param check_supply: """
         cost = self.calculate_cost(item_id)
-        if cost.minerals > self.minerals or cost.vespene > self.vespene:
+        if cost.minerals*amount > self.minerals or cost.vespene*amount > self.vespene:
             return False
-        if check_supply_cost and isinstance(item_id, UnitTypeId):
+        if check_supply and isinstance(item_id, UnitTypeId):
             supply_cost = self.calculate_supply_cost(item_id)
-            if supply_cost and supply_cost > self.supply_left:
+            if supply_cost and supply_cost*amount > self.supply_left:
                 return False
         return True
 
@@ -753,6 +779,7 @@ class BotAI(DistanceCalculation):
         max_distance: int = 20,
         random_alternative: bool = True,
         placement_step: int = 2,
+        addon_place: bool = False,
     ) -> Optional[Point2]:
         """ Finds a placement location for building.
 
@@ -777,7 +804,10 @@ class BotAI(DistanceCalculation):
             building = self._game_data.abilities[building.value]
 
         if await self.can_place(building, near):
-            return near
+            if not addon_place:
+                return near
+            elif await self.can_place(UnitTypeId.SUPPLYDEPOT, near.offset((2.5, -0.5))):
+                return near
 
         if max_distance == 0:
             return None
@@ -794,6 +824,14 @@ class BotAI(DistanceCalculation):
             ]
             res = await self._client.query_building_placement(building, possible_positions)
             possible = [p for r, p in zip(res, possible_positions) if r == ActionResult.Success]
+
+            if addon_place:
+                res = await self._client.query_building_placement(
+                    self._game_data.units[UnitTypeId.SUPPLYDEPOT.value].creation_ability,
+                    [p.offset((2.5, -0.5)) for p in possible]
+                )
+                possible = [p for r, p in zip(res, possible) if r == ActionResult.Success]
+
             if not possible:
                 continue
 
