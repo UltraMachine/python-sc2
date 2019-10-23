@@ -1,6 +1,6 @@
 from __future__ import annotations
 import warnings
-import math
+from math import sqrt, atan2, pi, fabs
 from typing import Any, Dict, List, Optional, Set, Tuple, Union, TYPE_CHECKING
 
 from .cache import property_immutable_cache, property_mutable_cache
@@ -444,7 +444,7 @@ class Unit:
 
         :param p: """
         if isinstance(p, Unit):
-            return math.sqrt(self._bot_object._distance_squared_unit_to_unit(self, p))
+            return sqrt(self._bot_object._distance_squared_unit_to_unit(self, p))
         return self._bot_object.distance_math_hypot(self.position_tuple, p)
 
     def target_in_range(self, target: Unit, bonus_distance: Union[int, float] = 0) -> bool:
@@ -536,12 +536,12 @@ class Unit:
 
         :param other_unit:
         :param angle_error: """
-        angle = math.atan2(
+        angle = atan2(
             other_unit.position_tuple[1] - self.position_tuple[1], other_unit.position_tuple[0] - self.position_tuple[0]
         )
         if angle < 0:
-            angle += math.pi * 2
-        angle_difference = math.fabs(angle - self.facing)
+            angle += pi * 2
+        angle_difference = fabs(angle - self.facing)
         return angle_difference < angle_error
 
     @property
