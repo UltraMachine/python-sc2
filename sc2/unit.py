@@ -919,21 +919,21 @@ class Unit:
         # TODO: add asserts to make sure "position" is not a Point2 or Point3 if "unit" is extractor / refinery / assimilator
         return self(self._bot_object._game_data.units[unit.value].creation_ability.id, target=position, queue=queue)
 
-    def build_gas(self, target_geysir: Unit, queue: bool = False) -> UnitCommand:
-        """ Orders unit to build another 'unit' at 'position'.
+    def build_gas(self, target_geyser: Unit, queue: bool = False) -> UnitCommand:
+        """ Orders unit to build 'gas_building' at 'geyser'.
         Usage::
 
             # Target for refinery, assimilator and extractor needs to be the vespene geysir unit, not its position
-            self.do(SCV.build_gas(target_vespene_geysir))
+            self.do(SCV.build_gas(target_vespene_geyser))
 
-        :param target_geysir:
+        :param target_geyser:
         :param queue:
         """
-        # TODO: add asserts to make sure "target_geysir" is not a Point2 or Point3
+        # TODO: add asserts to make sure "target_geyser" is not a Point2 or Point3
         gas_structure_type_id: UnitTypeId = race_gas[self._bot_object.race]
         return self(
             self._bot_object._game_data.units[gas_structure_type_id.value].creation_ability.id,
-            target=target_geysir,
+            target=target_geyser,
             queue=queue,
         )
 
