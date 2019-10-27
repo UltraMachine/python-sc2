@@ -294,7 +294,7 @@ class Units(list):
         distances = self._bot_object._distance_units_to_pos(self, position)
         return self.subgroup(unit for unit, dist in zip(self, distances) if distance < dist)
 
-   def nearby(self, distance: int, target_unit: Unit) -> Units:
+    def nearby(self, distance: int, target_unit: Unit) -> Units:
         """
         The same as "closer_than" but should be a bit faster because it takes only Unit as argument.
 
