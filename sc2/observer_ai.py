@@ -157,9 +157,11 @@ class ObserverAI(DistanceCalculation):
 
         :param alert_code:
         """
+        '''
         assert isinstance(
             alert_code, Alert), f"alert_code {alert_code} is no Alert"
         return alert_code.value in self.state.alerts
+        '''
 
     @property
     def start_location(self) -> Point2:

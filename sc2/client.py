@@ -394,7 +394,7 @@ class Client(Protocol):
 
     async def obs_move_camera(self, position: Union[Unit, Units, Point2, Point3]):
         """ Moves observer camera to the target position """
-        assert isinstance(position, (Unit, Units, Point2, Point3))
+        # assert isinstance(position, (Unit, Units, Point2, Point3))
         if isinstance(position, Units):
             position = position.center
         if isinstance(position, Unit):
