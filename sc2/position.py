@@ -20,14 +20,6 @@ class Pointlike(tuple):
     def position(self) -> Pointlike:
         return self
 
-    @property
-    def tuple(self) -> tuple:
-        return tuple(self)
-
-    @property  
-    def tupleint(self) -> tuple:
-        return tuple(map(int, self))
-
     def distance_to(self, target: Union[Unit, Point2]) -> float:
         """Calculate a single distance from a point or unit to another point or unit
 
@@ -169,6 +161,18 @@ class Point2(Pointlike):
     @property
     def rounded(self) -> Point2:
         return Point2((math.floor(self[0]), math.floor(self[1])))
+
+    @property
+    def tuple(self) -> tuple:
+        return (self[0], self[1])
+
+    @property
+    def reversed(self) -> Point2:
+        return Point2((self[1], self[0]))
+
+    @property
+    def re_tuple(self) -> tuple:
+        return (self[1], self[0])
 
     @property
     def x(self) -> Union[int, float]:
