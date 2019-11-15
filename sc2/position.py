@@ -152,7 +152,7 @@ class Pointlike(tuple):
 
 class Point2(Pointlike):
     @classmethod
-    def from_proto(cls, data):
+    def from_proto(cls, data) -> Point2:
         """
         :param data:
         """
@@ -173,6 +173,19 @@ class Point2(Pointlike):
     @property
     def re_tuple(self) -> tuple:
         return (self[1], self[0])
+
+    @property
+    def length(self) -> float:
+        """ This property exists in case Point2 is used as a vector. """
+        return math.hypot(self[0], self[1])
+
+    @property
+    def normalized(self) -> Point2:
+        """ This property exists in case Point2 is used as a vector. """
+        length = self.length
+        # Cannot normalize if length is zero
+        assert length
+        return self.__class__((self[0] / length, self[1] / length))
 
     @property
     def x(self) -> Union[int, float]:
