@@ -349,6 +349,17 @@ ALL_GAS: Set[UnitTypeId] = {
     UnitTypeId.EXTRACTOR,
     UnitTypeId.EXTRACTORRICH,
 }
+ALL_TOWNHALLS: Set[UnitTypeId] = {
+    UnitTypeId.NEXUS,
+    UnitTypeId.COMMANDCENTER,
+    UnitTypeId.ORBITALCOMMAND,
+    UnitTypeId.PLANETARYFORTRESS,
+    UnitTypeId.COMMANDCENTERFLYING,
+    UnitTypeId.ORBITALCOMMANDFLYING,
+    UnitTypeId.HATCHERY,
+    UnitTypeId.LAIR,
+    UnitTypeId.HIVE,
+}
 # How much damage a unit gains per weapon upgrade
 # E.g. marauder receives +1 normal damage and +1 vs armored, so we have to list +1 vs armored here - the +1 normal damage is assumed
 # E.g. stalker receives +1 normal damage but does not increment at all vs armored, so we don't list it here

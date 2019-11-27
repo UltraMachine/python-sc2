@@ -18,6 +18,7 @@ from .constants import (
     PROTOSS_TECH_REQUIREMENT,
     ZERG_TECH_REQUIREMENT,
     ALL_GAS,
+    ALL_TOWNHALLS,
 )
 from .data import ActionResult, Alert, Race, Result, Target, race_gas, race_townhalls, race_worker
 from .distances import DistanceCalculation
@@ -73,6 +74,7 @@ class BotAI(DistanceCalculation):
         self.structures: Units = Units([], self)
         self.gas_buildings: Units = Units([], self)
         self.enemy_units: Units = Units([], self)
+        self.enemy_townhalls: Units = Units([], self)
         self.enemy_structures: Units = Units([], self)
         self.resources: Units = Units([], self)
         self.destructables: Units = Units([], self)
@@ -421,7 +423,7 @@ class BotAI(DistanceCalculation):
             def is_near_to_expansion(t):
                 return t.distance_to(el) < self.EXPANSION_GAP_THRESHOLD
 
-            if any(map(is_near_to_expansion, self.enemy_structures)):
+            if any(map(is_near_to_expansion, self.enemy_townhalls)):
                 # already taken
                 continue
 
@@ -1522,6 +1524,7 @@ class BotAI(DistanceCalculation):
         self.units: Units = Units([], self)
         self.structures: Units = Units([], self)
         self.enemy_units: Units = Units([], self)
+        self.enemy_townhalls: Units = Units([], self)
         self.enemy_structures: Units = Units([], self)
         self.mineral_field: Units = Units([], self)
         self.vespene_geyser: Units = Units([], self)
@@ -1598,6 +1601,8 @@ class BotAI(DistanceCalculation):
                 elif alliance == 4:
                     if unit_obj.is_structure:
                         self.enemy_structures.append(unit_obj)
+                        if unit_obj.type_id in ALL_TOWNHALLS:
+                            self.enemy_townhalls.append(unit_obj)
                     else:
                         self.enemy_units.append(unit_obj)
 
