@@ -11,7 +11,7 @@ jobs:
   # Jobs that are allowed to fail
   allow_failures:
     - stage: test python 3.8
-    - stage: release to pypi
+#    - stage: release to pypi
 
   # Jobs that are being run
   include:

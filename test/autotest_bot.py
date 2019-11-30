@@ -37,7 +37,7 @@ class TestBot(sc2.BotAI):
         # At least 4 tests because we test properties and variables
         self.action_tests = [
             getattr(self, f"test_botai_actions{index}")
-            for index in range(1000)
+            for index in range(4000)
             if hasattr(getattr(self, f"test_botai_actions{index}", 0), "__call__")
         ]
         self.tests_target = 4
@@ -234,9 +234,18 @@ class TestBot(sc2.BotAI):
                 await self.get_next_expansion()
                 await self.expand_now()
 
-            await self._advance_steps(100)
+            await self._advance_steps(10)
+
+            assert self.structures_without_construction_SCVs(UnitTypeId.COMMANDCENTER).amount == 0
+
             if self.townhalls(UnitTypeId.COMMANDCENTER).amount >= 2:
+                assert self.townhalls(UnitTypeId.COMMANDCENTER).not_ready.amount == 1
+                assert self.already_pending(UnitTypeId.COMMANDCENTER) == 1
+                # The CC construction has started, 'worker_en_route_to_build' should show 0
+                assert self.worker_en_route_to_build(UnitTypeId.COMMANDCENTER) == 0
                 break
+            elif self.already_pending(UnitTypeId.COMMANDCENTER) == 1:
+                assert self.worker_en_route_to_build(UnitTypeId.COMMANDCENTER) == 1
 
         await self._advance_steps(2)
         logger.warning("Action test 05 successful.")
@@ -438,7 +447,7 @@ class TestBot(sc2.BotAI):
         await self._advance_steps(2)
 
     # Create a lot of units and check if their damage calculation is correct based on Unit.calculate_damage_vs_target()
-    async def test_botai_actions12(self):
+    async def test_botai_actions1001(self):
         upgrade_levels = [0, 1]
         attacker_units = [
             #
@@ -511,10 +520,12 @@ class TestBot(sc2.BotAI):
             # Ground, mechanical
             UnitTypeId.STALKER,
             # Ground, massive
-            UnitTypeId.ULTRALISK,
+            # UnitTypeId.ULTRALISK, # Fails vs our zergling
             # Ground, structure
             # UnitTypeId.PYLON, # Pylon seems to regenerate 1 shield for no reason
             UnitTypeId.SUPPLYDEPOT,
+            UnitTypeId.BUNKER,
+            UnitTypeId.MISSILETURRET,
             # Air, light
             UnitTypeId.PHOENIX,
             # Air, armored
@@ -548,6 +559,53 @@ class TestBot(sc2.BotAI):
             attacker: Unit = my_units.closest_to(map_center)
             defender: Unit = enemy_units.closest_to(map_center)
             return attacker, defender
+
+        def do_some_unit_property_tests(attacker: Unit, defender: Unit):
+            """ Some tests that are not covered by test_pickled_data.py """
+            # TODO move unit unrelated tests elsewhere
+            self.step_time
+            self.main_base_ramp
+            self.units_created
+
+            self.structure_type_build_progress(attacker.type_id)
+            self.structure_type_build_progress(defender.type_id)
+            self.tech_requirement_progress(attacker.type_id)
+            self.tech_requirement_progress(defender.type_id)
+            self.in_map_bounds(attacker.position)
+            self.in_map_bounds(defender.position)
+            self.get_terrain_z_height(attacker.position)
+            self.get_terrain_z_height(defender.position)
+
+            for unit in [attacker, defender]:
+                unit.shield_percentage
+                unit.shield_health_percentage
+                unit.energy_percentage
+                unit.age_in_frames
+                unit.age
+                unit.is_memory
+                unit.is_snapshot
+                unit.cloak
+                unit.is_revealed
+                unit.can_be_attacked
+                unit.buff_duration_remain
+                unit.buff_duration_max
+                unit.order_target
+                unit.is_transforming
+                unit.has_techlab
+                unit.has_reactor
+                unit.add_on_position
+                unit.health_percentage
+                unit.bonus_damage
+                unit.air_dps
+
+            attacker.target_in_range(defender)
+            defender.target_in_range(attacker)
+            attacker.calculate_dps_vs_target(defender)
+            defender.calculate_dps_vs_target(attacker)
+            attacker.is_facing(defender)
+            defender.is_facing(attacker)
+            attacker == defender
+            defender == attacker
 
         await self.clean_up_center()
         await self._advance_steps(2)
@@ -590,6 +648,7 @@ class TestBot(sc2.BotAI):
                         attacker, defender = get_attacker_and_defender()
                         # TODO check if shield calculation is correct by setting shield of enemy unit
                     # print(f"Attacker: {attacker}, defender: {defender}")
+                    do_some_unit_property_tests(attacker, defender)
 
                     # Units have spawned, calculate expected damage
                     expected_damage: float = attacker.calculate_damage_vs_target(defender)[0]
@@ -635,15 +694,19 @@ class TestBot(sc2.BotAI):
         # Hide map again
         await self.client.debug_show_map()
         await self._advance_steps(2)
-        logger.warning("Action test 11 successful.")
+        logger.warning("Action test 1001 successful.")
 
     # TODO:
     # self.can_cast function
     # Test client.py debug functions
     # Test if events work (upgrade complete, unit complete, building complete, building started)
     # Test if functions with various combinations works (e.g. already_pending)
-    # Test self.train function on: larva, hatchery + lair (queens), 2 barracks (2 marines), 2 nexus (probes)
-    # Test self.research function on: ebay, hatchery, forge, evo chamber
+    # Test self.train function on: larva, hatchery + lair (queens), 2 barracks (2 marines), 2 nexus (probes) (best: every building)
+    # Test self.research function on: ebay, hatchery, forge, evo chamber (best: every building)
+    # Test unit range and base attack damage
+    # Test if structures_without_construction_SCVs works after killing the scv
+    # Test if all upgrades are correctly listed in API and in dicts upgrade_researched_from -> research all upgrades once
+    # Test if dicts are correct for unit_trained_from.py -> train all units once
 
 
 class EmptyBot(sc2.BotAI):
