@@ -63,7 +63,7 @@ warnings.simplefilter("once")
 
 if TYPE_CHECKING:
     from .bot_ai import BotAI
-    from .game_data import AbilityData
+    from .game_data import AbilityData, UnitTypeData
 
 
 class UnitOrder:
@@ -116,7 +116,7 @@ class Unit:
         return self._bot_object._game_data.unit_types[unit_type]
 
     @property_immutable_cache
-    def _type_data(self) -> "UnitTypeData":
+    def _type_data(self) -> UnitTypeData:
         """ Provides the unit type data. """
         return self._bot_object._game_data.units[self._proto.unit_type]
 
@@ -578,13 +578,17 @@ class Unit:
         :param ignore_armor:
         :param include_overkill_damage:
         """
-        if not self.can_attack:
+        if self.type_id not in {UnitTypeId.BATTLECRUISER, UnitTypeId.BUNKER}:
+            if not self.can_attack:
+                return 0, 0, 0
+            if target.type_id != UnitTypeId.COLOSSUS:
+                if not self.can_attack_ground and not target.is_flying:
+                    return 0, 0, 0
+                if not self.can_attack_air and target.is_flying:
+                    return 0, 0, 0
+        # Enemy structures that are not completed can't attack
+        if not target.is_ready:
             return 0, 0, 0
-        if target.type_id != UnitTypeId.COLOSSUS:
-            if not self.can_attack_ground and not target.is_flying:
-                return 0, 0, 0
-            if not self.can_attack_air and target.is_flying:
-                return 0, 0, 0
         target_has_guardian_shield: bool = False
         if ignore_armor:
             enemy_armor: float = 0
@@ -613,13 +617,9 @@ class Unit:
             if target_has_guardian_shield:
                 enemy_armor += 2
                 enemy_shield_armor += 2
-            weapon_damage = 8 + self.attack_upgrade_level if not target.is_flying else 5 + self.attack_upgrade_level
+            weapon_damage = (8 if not target.is_flying else 5) + self.attack_upgrade_level
             weapon_damage = weapon_damage - enemy_shield_armor if target.shield else weapon_damage - enemy_armor
             return weapon_damage, 0.224, 6
-
-        required_target_type: Set[
-            int
-        ] = TARGET_BOTH if target.type_id == UnitTypeId.COLOSSUS else TARGET_GROUND if not target.is_flying else TARGET_AIR
 
         # Fast return for bunkers, since they don't have a weapon similar to BCs
         if self.type_id == UnitTypeId.BUNKER:
@@ -632,6 +632,9 @@ class Unit:
                 # TODO if bunker belongs to us, use passengers and upgrade level to calculate damage
                 pass
 
+        required_target_type: Set[
+            int
+        ] = TARGET_BOTH if target.type_id == UnitTypeId.COLOSSUS else TARGET_GROUND if not target.is_flying else TARGET_AIR
         # Contains total damage, attack speed and attack range
         damages: List[Tuple[float, float, float]] = []
         for weapon in self._weapons:
@@ -739,6 +742,7 @@ class Unit:
                 elif self.type_id == UnitTypeId.MARAUDER and BuffId.STIMPACKMARAUDER in self.buffs:
                     weapon_speed /= 1.5
                 elif (
+                    # TODO always assume that the enemy has the range upgrade researched
                     self.type_id == UnitTypeId.HYDRALISK
                     and self.is_mine
                     and UpgradeId.EVOLVEGROOVEDSPINES in self._bot_object.state.upgrades
@@ -788,6 +792,7 @@ class Unit:
 
         :param other_unit:
         :param angle_error: """
+        # TODO perhaps return default True for units that cannot 'face' another unit? e.g. structures (planetary fortress, bunker, missile turret, photon cannon, spine, spore) or sieged tanks
         angle = atan2(
             other_unit.position_tuple[1] - self.position_tuple[1], other_unit.position_tuple[0] - self.position_tuple[0]
         )
@@ -959,6 +964,7 @@ class Unit:
     @property_mutable_cache
     def orders(self) -> List[UnitOrder]:
         """ Returns the a list of the current orders. """
+        # TODO: add examples on how to use unit orders
         return [UnitOrder.from_proto(order, self._bot_object) for order in self._proto.orders]
 
     @property_immutable_cache

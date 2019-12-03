@@ -1065,6 +1065,7 @@ class BotAI(DistanceCalculation):
         New function. Please report any bugs! """
         worker_targets: Set[Union[int, Point2]] = set()
         for worker in self.workers:
+            # Ignore repairing workers
             if not worker.is_constructing_scv:
                 continue
             for order in worker.orders:
@@ -1387,6 +1388,7 @@ class BotAI(DistanceCalculation):
         self.unit_tags_received_action.add(action.unit.tag)
         return True
 
+    # TODO remove again, because you can just use 'self.do()' and execute '_do_actions' and 'self.actions.clear()' afterwards?
     async def synchronous_do(self, action: UnitCommand):
         """
         Not recommended. Use self.do instead to reduce lag.
@@ -1464,7 +1466,7 @@ class BotAI(DistanceCalculation):
     def in_map_bounds(self, pos: Union[Point2, tuple]) -> bool:
         """ Tests if a 2 dimensional point is within the map boundaries of the pixelmaps.
         :param pos: """
-        return 0 <= pos[0] < self.game_info.placement_grid.width and 0 <= pos[1] < self.game_info.placement_grid.height
+        return self._game_info.playable_area.x <= pos[0] < self._game_info.playable_area.x + self.game_info.playable_area.width and self._game_info.playable_area.y <= pos[1] < self._game_info.playable_area.y + self.game_info.playable_area.height
 
     # For the functions below, make sure you are inside the boundries of the map size.
     def get_terrain_height(self, pos: Union[Point2, Point3, Unit]) -> int:
