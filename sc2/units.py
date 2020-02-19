@@ -1,6 +1,6 @@
 from __future__ import annotations
-import random
-import warnings
+from random import choice, sample
+from warnings import simplefilter
 from math import sqrt
 from itertools import chain
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union, TYPE_CHECKING
@@ -8,9 +8,9 @@ from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union, TYPE_
 from .ids.unit_typeid import UnitTypeId
 from .position import Point2, Point3
 from .unit import Unit
-import numpy as np
+from numpy import ndarray
 
-warnings.simplefilter("once")
+simplefilter("once")
 
 if TYPE_CHECKING:
     from .bot_ai import BotAI
@@ -44,7 +44,7 @@ class Units(list):
         return Units(
             chain(
                 iter(self),
-                (other_unit for other_unit in other if other_unit.tag not in (self_unit.tag for self_unit in self)),
+                (other_unit for other_unit in other if other_unit.tag not in {self_unit.tag for self_unit in self}),
             ),
             self._bot_object,
         )
@@ -53,20 +53,20 @@ class Units(list):
         return Units(
             chain(
                 iter(self),
-                (other_unit for other_unit in other if other_unit.tag not in (self_unit.tag for self_unit in self)),
+                (other_unit for other_unit in other if other_unit.tag not in {self_unit.tag for self_unit in self}),
             ),
             self._bot_object,
         )
 
     def __and__(self, other: Units) -> Units:
         return Units(
-            (other_unit for other_unit in other if other_unit.tag in (self_unit.tag for self_unit in self)),
+            (other_unit for other_unit in other if other_unit.tag in {self_unit.tag for self_unit in self}),
             self._bot_object,
         )
 
     def __sub__(self, other: Units) -> Units:
         return Units(
-            (self_unit for self_unit in self if self_unit.tag not in (other_unit.tag for other_unit in other)),
+            (self_unit for self_unit in self if self_unit.tag not in {other_unit.tag for other_unit in other}),
             self._bot_object,
         )
 
@@ -111,10 +111,10 @@ class Units(list):
     @property
     def random(self) -> Unit:
         assert self, "Units object is empty"
-        return random.choice(self)
+        return choice(self)
 
     def random_or(self, other: any) -> Unit:
-        return random.choice(self) if self else other
+        return choice(self) if self else other
 
     def random_group_of(self, n: int) -> Units:
         """ Returns self if n >= self.amount. """
@@ -123,11 +123,11 @@ class Units(list):
         elif n >= self.amount:
             return self
         else:
-            return self.subgroup(random.sample(self, n))
+            return self.subgroup(sample(self, n))
 
     # TODO: append, insert, remove, pop and extend functions should reset the cache for Units.positions because the number of units in the list has changed
     # @property_immutable_cache
-    # def positions(self) -> np.ndarray:
+    # def positions(self) -> ndarray:
     #     flat_units_positions = (coord for unit in self for coord in unit.position)
     #     unit_positions_np = np.fromiter(flat_units_positions, dtype=float, count=2 * len(self)).reshape((len(self), 2))
     #     return unit_positions_np
@@ -156,6 +156,9 @@ class Units(list):
         :param unit:
         :param bonus_distance: """
         return self.filter(lambda x: unit.target_in_range(x, bonus_distance=bonus_distance))
+
+    def can_attack(self, unit: Unit, bonus_distance: Union[int, float] = 0) -> Units:
+        return self.filter(lambda x: x.target_in_range(unit, bonus_distance=bonus_distance))
 
     def closest_distance_to(self, position: Union[Unit, Point2, Point3]) -> float:
         """
@@ -383,7 +386,7 @@ class Units(list):
             return self
         return self.subgroup(self._list_sorted_by_distance_to(position)[:n])
 
-    def furthest_n_units(self, position: Union[Unit, Point2, np.ndarray], n: int) -> Units:
+    def furthest_n_units(self, position: Union[Unit, Point2, ndarray], n: int) -> Units:
         """
         Returns the n furhest units in distance to position.
 
@@ -459,13 +462,13 @@ class Units(list):
         unit_dist_dict = {unit.tag: dist for unit, dist in zip(self, distances)}
         return sorted(self, key=lambda unit2: abs(unit_dist_dict[unit2.tag] - distance), reverse=True)
 
-    def n_closest_to_distance(self, position: Union[Point2, np.ndarray], distance: Union[int, float], n: int) -> Units:
+    def n_closest_to_distance(self, position: Union[Point2, ndarray], distance: Union[int, float], n: int) -> Units:
         """ Returns n units that are the closest to distance away.
         For example if the distance is set to 5 and you want 3 units, from units with distance [3, 4, 5, 6, 7] to position,
         the units with distance [4, 5, 6] will be returned """
         return self.subgroup(self._list_sorted_closest_to_distance(position=position, distance=distance)[:n])
 
-    def n_furthest_to_distance(self, position: Union[Point2, np.ndarray], distance: Union[int, float], n: int) -> Units:
+    def n_furthest_to_distance(self, position: Union[Point2, ndarray], distance: Union[int, float], n: int) -> Units:
         """ Inverse of the function 'n_closest_to_distance', returns the furthest units instead """
         return self.subgroup(self._list_sorted_closest_to_distance(position=position, distance=distance)[-n:])
 
@@ -655,7 +658,10 @@ class Units(list):
         assert self, f"Units object is empty"
         amount = self.amount
         return Point2(
-            (sum(unit._proto.pos.x for unit in self) / amount, sum(unit._proto.pos.y for unit in self) / amount,)
+            (
+                sum(unit._proto.pos.x for unit in self) / amount,
+                sum(unit._proto.pos.y for unit in self) / amount,
+            )
         )
 
     @property

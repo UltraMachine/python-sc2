@@ -1,8 +1,8 @@
-import logging
+from logging import getLogger
 
 from .paths import Paths
 
-logger = logging.getLogger(__name__)
+logger = getLogger(__name__)
 
 
 def get(name=None):

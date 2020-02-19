@@ -1,5 +1,5 @@
 from __future__ import annotations
-import logging
+from logging import getLogger
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union, TYPE_CHECKING
 
 from s2clientprotocol import common_pb2 as common_pb
@@ -20,7 +20,7 @@ from .renderer import Renderer
 from .unit import Unit
 from .units import Units
 
-logger = logging.getLogger(__name__)
+logger = getLogger(__name__)
 
 
 class Client(Protocol):
@@ -54,6 +54,7 @@ class Client(Protocol):
             score=True,
             show_cloaked=True,
             show_burrowed_shadows=True,
+            show_placeholders=False,
             raw_affects_selection=self.raw_affects_selection,
             raw_crop_to_playable_area=False,
         )

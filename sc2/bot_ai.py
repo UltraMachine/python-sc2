@@ -1,11 +1,11 @@
 from __future__ import annotations
-import itertools
-import logging
-import math
-import random
-import time
-import warnings
-from collections import Counter
+from itertools import combinations, product
+from logging import getLogger
+from math import inf, hypot
+from random import choice
+from time import perf_counter
+from warnings import warn
+from collections import Counter, defaultdict
 from typing import Any, Dict, List, Optional, Set, Tuple, Union, TYPE_CHECKING
 from s2clientprotocol import sc2api_pb2 as sc_pb
 
@@ -15,6 +15,7 @@ from .constants import (
     abilityid_to_unittypeid,
     geyser_ids,
     mineral_ids,
+    inhibitor_ids,
     TERRAN_TECH_REQUIREMENT,
     PROTOSS_TECH_REQUIREMENT,
     ZERG_TECH_REQUIREMENT,
@@ -44,7 +45,7 @@ from .units import Units
 from .game_data import Cost
 from .unit_command import UnitCommand
 
-logger = logging.getLogger(__name__)
+logger = getLogger(__name__)
 
 if TYPE_CHECKING:
     from .game_info import GameInfo, Ramp
@@ -71,11 +72,14 @@ class BotAI(DistanceCalculation):
         # This value will be set to True by main.py in self._prepare_start if game is played in realtime (if true, the bot will have limited time per step)
         self.realtime: bool = False
         self.all_units: Units = Units([], self)
+        self.allies: Units = Units([], self)
         self.units: Units = Units([], self)
         self.workers: Units = Units([], self)
         self.townhalls: Units = Units([], self)
+        self.ground_townhalls: Units = Units([], self)
         self.structures: Units = Units([], self)
         self.gas_buildings: Units = Units([], self)
+        self.enemies: Units = Units([], self)
         self.enemy_units: Units = Units([], self)
         self.enemy_townhalls: Units = Units([], self)
         self.enemy_structures: Units = Units([], self)
@@ -84,6 +88,7 @@ class BotAI(DistanceCalculation):
         self.watchtowers: Units = Units([], self)
         self.mineral_field: Units = Units([], self)
         self.vespene_geyser: Units = Units([], self)
+        self.inhibitor_zones: Units = Units([], self)
         self.larva: Units = Units([], self)
         self.techlab_tags: Set[int] = set()
         self.reactor_tags: Set[int] = set()
@@ -108,13 +113,14 @@ class BotAI(DistanceCalculation):
         self._previous_upgrades: Set[UpgradeId] = set()
         self._time_before_step: float = None
         self._time_after_step: float = None
-        self._min_step_time: float = math.inf
+        self._min_step_time: float = inf
         self._max_step_time: float = 0
         self._last_step_step_time: float = 0
         self._total_time_in_on_step: float = 0
         self._total_steps_iterations: int = 0
         # Internally used to keep track which units received an action in this frame, so that self.train() function does not give the same larva two orders - cleared every frame
         self.unit_tags_received_action: Set[int] = set()
+        self.max_cooldown_units = defaultdict(float)
 
     @property
     def time(self) -> float:
@@ -163,7 +169,7 @@ class BotAI(DistanceCalculation):
     @property
     def larva_count(self):
         """ Replacement for self.state.common.larva_count https://github.com/Blizzard/s2client-proto/blob/d3d18392f9d7c646067d447df0c936a8ca57d587/s2clientprotocol/sc2api.proto#L614 """
-        warnings.warn(
+        warn(
             "self.larva_count will be removed soon, please use len(self.larva) or self.larva.amount instead",
             DeprecationWarning,
             stacklevel=2,
@@ -273,11 +279,11 @@ class BotAI(DistanceCalculation):
         while merged_group:
             merged_group = False
             # Check every combination of two groups
-            for group_a, group_b in itertools.combinations(resource_groups, 2):
+            for group_a, group_b in combinations(resource_groups, 2):
                 # Check if any pair of resource of these groups is closer than threshold together
                 if any(
                     resource_a.distance_to(resource_b) <= resource_spread_threshold
-                    for resource_a, resource_b in itertools.product(group_a, group_b)
+                    for resource_a, resource_b in product(group_a, group_b)
                 ):
                     # Remove the single groups and add the merged group
                     resource_groups.remove(group_a)
@@ -289,8 +295,8 @@ class BotAI(DistanceCalculation):
         offset_range = 7
         offsets = [
             (x, y)
-            for x, y in itertools.product(range(-offset_range, offset_range + 1), repeat=2)
-            if math.hypot(x, y) <= 8
+            for x, y in product(range(-offset_range, offset_range + 1), repeat=2)
+            if hypot(x, y) <= 8
         ]
         # Dict we want to return
         centers = {}
@@ -404,7 +410,7 @@ class BotAI(DistanceCalculation):
         """Find next expansion location."""
 
         closest = None
-        distance = math.inf
+        distance = inf
         for el in self.expansion_locations:
 
             def is_near_to_expansion(t):
@@ -429,7 +435,7 @@ class BotAI(DistanceCalculation):
         """Find next expansion location of enemy."""
 
         closest = None
-        distance = math.inf
+        distance = inf
         for el in self.expansion_locations:
 
             def is_near_to_expansion(t):
@@ -565,6 +571,20 @@ class BotAI(DistanceCalculation):
                 return t.distance_to(el) < self.EXPANSION_GAP_THRESHOLD
 
             th = next((x for x in self.townhalls if is_near_to_expansion(x)), None)
+            if th:
+                owned[el] = th
+        return owned
+
+    @property
+    def enemy_expansions(self) -> Dict[Point2, Unit]:
+        """List of expansions owned by enemy."""
+        owned = {}
+        for el in self.expansion_locations:
+
+            def is_near_to_expansion(t):
+                return t.distance_to(el) < self.EXPANSION_GAP_THRESHOLD
+
+            th = next((x for x in self.enemy_townhalls if is_near_to_expansion(x)), None)
             if th:
                 owned[el] = th
         return owned
@@ -888,7 +908,7 @@ class BotAI(DistanceCalculation):
                 continue
 
             if random_alternative:
-                return random.choice(possible)
+                return choice(possible)
             else:
                 return min(possible, key=lambda p: p.distance_to_point2(near))
         return None
@@ -1542,6 +1562,10 @@ class BotAI(DistanceCalculation):
         pos = pos.position.to2.rounded
         return self.state.visibility[pos] == 2
 
+    def is_explored(self, pos: Union[Point2, Point3, Unit]) -> bool:
+        pos = pos.position.to2.rounded
+        return self.state.visibility[pos] != 0  # 0=Hidden, 1=Fogged, 2=Visible, 3=FullHidden
+
     def has_creep(self, pos: Union[Point2, Point3, Unit]) -> bool:
         """ Returns True if there is creep on the grid point.
 
@@ -1580,7 +1604,7 @@ class BotAI(DistanceCalculation):
             # Calculate and cache expansion locations forever inside 'self._cache_expansion_locations', this is done to prevent a bug when this is run and cached later in the game
             _ = self.expansion_locations
         self._game_info.map_ramps, self._game_info.vision_blockers = self._game_info._find_ramps_and_vision_blockers()
-        self._time_before_step: float = time.perf_counter()
+        self._time_before_step: float = perf_counter()
 
     def _prepare_step(self, state, proto_game_info):
         """
@@ -1616,13 +1640,15 @@ class BotAI(DistanceCalculation):
 
         self.idle_worker_count: int = state.common.idle_worker_count
         self.army_count: int = state.common.army_count
-        self._time_before_step: float = time.perf_counter()
+        self._time_before_step: float = perf_counter()
 
     def _prepare_units(self):
         # Set of enemy units detected by own sensor tower, as blips have less unit information than normal visible units
         self.blips: Set[Blip] = set()
+        self.allies: Units = Units([], self)
         self.units: Units = Units([], self)
         self.structures: Units = Units([], self)
+        self.enemies: Units = Units([], self)
         self.enemy_units: Units = Units([], self)
         self.enemy_townhalls: Units = Units([], self)
         self.enemy_structures: Units = Units([], self)
@@ -1631,9 +1657,11 @@ class BotAI(DistanceCalculation):
         self.resources: Units = Units([], self)
         self.destructables: Units = Units([], self)
         self.watchtowers: Units = Units([], self)
+        self.inhibitor_zones: Units = Units([], self)
         self.all_units: Units = Units([], self)
         self.workers: Units = Units([], self)
         self.townhalls: Units = Units([], self)
+        self.ground_townhalls: Units = Units([], self)
         self.gas_buildings: Units = Units([], self)
         self.larva: Units = Units([], self)
         self.techlab_tags: Set[int] = set()
@@ -1664,16 +1692,28 @@ class BotAI(DistanceCalculation):
                     elif unit_type in geyser_ids:
                         self.vespene_geyser.append(unit_obj)
                         self.resources.append(unit_obj)
+                    # inhubitor zones
+                    elif unit_type in inhibitor_ids:
+                        self.inhibitor_zones.append(unit_obj)
                     # all destructable rocks
                     else:
                         self.destructables.append(unit_obj)
                 # Alliance.Self.value = 1
                 elif alliance == 1:
+                    self.allies.append(unit_obj)
                     unit_id = unit_obj.type_id
+
+                    # checking cooldown
+                    cool = unit_obj.weapon_cooldown
+                    if cool != -1 and cool > self.max_cooldown_units[unit_id]:
+                        self.max_cooldown_units[unit_id] = cool
+
                     if unit_obj.is_structure:
                         self.structures.append(unit_obj)
                         if unit_id in race_townhalls[self.race]:
                             self.townhalls.append(unit_obj)
+                            if unit_id not in {UnitTypeId.COMMANDCENTERFLYING, UnitTypeId.ORBITALCOMMANDFLYING}:
+                                self.ground_townhalls.append(unit_obj)
                         elif unit_id in ALL_GAS or unit_obj.vespene_contents:
                             # TODO: remove "or unit_obj.vespene_contents" when a new linux client newer than version 4.10.0 is released
                             self.gas_buildings.append(unit_obj)
@@ -1700,6 +1740,7 @@ class BotAI(DistanceCalculation):
                             self.larva.append(unit_obj)
                 # Alliance.Enemy.value = 4
                 elif alliance == 4:
+                    self.enemies.append(unit_obj)
                     if unit_obj.is_structure:
                         self.enemy_structures.append(unit_obj)
                         if unit_obj.type_id in ALL_TOWNHALLS:
@@ -1721,7 +1762,7 @@ class BotAI(DistanceCalculation):
     async def _after_step(self) -> int:
         """ Executed by main.py after each on_step function. """
         # Keep track of the bot on_step duration
-        self._time_after_step: float = time.perf_counter()
+        self._time_after_step: float = perf_counter()
         step_duration = self._time_after_step - self._time_before_step
         self._min_step_time = min(step_duration, self._min_step_time)
         self._max_step_time = max(step_duration, self._max_step_time)

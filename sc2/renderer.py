@@ -1,4 +1,4 @@
-import datetime
+from datetime import timedelta
 
 from s2clientprotocol import score_pb2 as score_pb
 
@@ -99,7 +99,7 @@ class Renderer:
         else:
             self._map_image.set_data("RGB", map_pitch, map_data)
             self._minimap_image.set_data("RGB", minimap_pitch, minimap_data)
-            self._text_time.text = str(datetime.timedelta(seconds=(observation.observation.game_loop * 0.725) // 16))
+            self._text_time.text = str(timedelta(seconds=(observation.observation.game_loop * 0.725) // 16))
             if observation.observation.HasField("player_common"):
                 self._text_supply.text = "{} / {}".format(
                     observation.observation.player_common.food_used, observation.observation.player_common.food_cap

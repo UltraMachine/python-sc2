@@ -1,5 +1,5 @@
 from __future__ import annotations
-import warnings
+from warnings import warn
 from math import sqrt, atan2, pi, fabs
 from typing import Any, Dict, List, Optional, Set, Tuple, Union, TYPE_CHECKING
 
@@ -36,7 +36,8 @@ from .constants import (
     IS_COLLECTING,
     IS_CONSTRUCTING_SCV,
     IS_REPAIRING,
-    IS_DETECTOR,
+    IS_DETECTOR_UNIT,
+    IS_DETECTOR_STRUCTURE,
     UNIT_PHOTONCANNON,
     UNIT_COLOSSUS,
     SPEED_INCREASE_DICT,
@@ -45,6 +46,7 @@ from .constants import (
     OFF_CREEP_SPEED_UPGRADE_DICT,
     OFF_CREEP_SPEED_INCREASE_DICT,
     SPEED_ALTERING_BUFFS,
+    DETECT_RANGE_DICT,
 )
 from .data import (
     Alliance,
@@ -210,7 +212,11 @@ class Unit:
     @property_immutable_cache
     def can_attack_both(self) -> bool:
         """ Checks if the unit can attack both ground and air units. """
-        return self.can_attack_ground and self.can_attack_air
+        if self.type_id == UNIT_BATTLECRUISER:
+            return True
+        if self._weapons:
+            return any(weapon.type in TARGET_BOTH for weapon in self._weapons)
+        return False
 
     @property_immutable_cache
     def can_attack_ground(self) -> bool:
@@ -583,6 +589,9 @@ class Unit:
             return self.air_range
         return 0
 
+    def real_attack_range(self, target: Unit) -> Union[int, float]:
+        return self.calculate_damage_vs_target(target)[2]
+
     def target_dps(self, target: Unit) -> Union[int, float]:
         """ Returns weapon dps for current target.
         Returns 0 if unit can't attack target.
@@ -642,7 +651,9 @@ class Unit:
         :param ignore_armor:
         :param include_overkill_damage:
         """
-        if self.type_id not in {UnitTypeId.BATTLECRUISER, UnitTypeId.BUNKER}:
+        unit_type = self.type_id
+
+        if unit_type not in {UnitTypeId.BATTLECRUISER, UnitTypeId.BUNKER}:
             if not self.can_attack:
                 return 0, 0, 0
             if target.type_id != UnitTypeId.COLOSSUS:
@@ -676,17 +687,19 @@ class Unit:
                 enemy_armor -= 2
                 enemy_shield_armor -= 2
 
+        attack_upgrade_level = self.attack_upgrade_level
+
         # Fast return for battlecruiser because they have no weapon in the API
-        if self.type_id == UnitTypeId.BATTLECRUISER:
+        if unit_type == UnitTypeId.BATTLECRUISER:
             if target_has_guardian_shield:
                 enemy_armor += 2
                 enemy_shield_armor += 2
-            weapon_damage = (8 if not target.is_flying else 5) + self.attack_upgrade_level
+            weapon_damage = (8 if not target.is_flying else 5) + attack_upgrade_level
             weapon_damage = weapon_damage - enemy_shield_armor if target.shield else weapon_damage - enemy_armor
             return weapon_damage, 0.224, 6
 
         # Fast return for bunkers, since they don't have a weapon similar to BCs
-        if self.type_id == UnitTypeId.BUNKER:
+        if unit_type == UnitTypeId.BUNKER:
             if self.is_enemy:
                 if self.is_active:
                     # Expect fully loaded bunker with marines
@@ -699,6 +712,10 @@ class Unit:
         required_target_type: Set[
             int
         ] = TARGET_BOTH if target.type_id == UnitTypeId.COLOSSUS else TARGET_GROUND if not target.is_flying else TARGET_AIR
+        upgrades = self._bot_object.state.upgrades
+        is_mine = self.is_mine
+        buffs = self.buffs
+
         # Contains total damage, attack speed and attack range
         damages: List[Tuple[float, float, float]] = []
         for weapon in self._weapons:
@@ -711,10 +728,10 @@ class Unit:
             weapon_range: float = weapon.range
             bonus_damage_per_upgrade = (
                 0
-                if not self.attack_upgrade_level
-                else DAMAGE_BONUS_PER_UPGRADE.get(self.type_id, {}).get(weapon.type, {}).get(None, 1)
+                if not attack_upgrade_level
+                else DAMAGE_BONUS_PER_UPGRADE.get(unit_type, {}).get(weapon.type, {}).get(None, 1)
             )
-            damage_per_attack: float = weapon.damage + self.attack_upgrade_level * bonus_damage_per_upgrade
+            damage_per_attack: float = weapon.damage + attack_upgrade_level * bonus_damage_per_upgrade
             # Remaining damage after all damage is dealt to shield
             remaining_damage: float = 0
 
@@ -726,18 +743,18 @@ class Unit:
                 if bonus.attribute in target._type_data.attributes:
                     bonus_damage_per_upgrade = (
                         0
-                        if not self.attack_upgrade_level
-                        else DAMAGE_BONUS_PER_UPGRADE.get(self.type_id, {}).get(weapon.type, {}).get(bonus.attribute, 0)
+                        if not attack_upgrade_level
+                        else DAMAGE_BONUS_PER_UPGRADE.get(unit_type, {}).get(weapon.type, {}).get(bonus.attribute, 0)
                     )
                     # Hardcode blueflame damage bonus from hellions
                     if (
                         bonus.attribute == IS_LIGHT
-                        and self.type_id == UnitTypeId.HELLION
-                        and UpgradeId.HIGHCAPACITYBARRELS in self._bot_object.state.upgrades
+                        and unit_type == UnitTypeId.HELLION
+                        and UpgradeId.HIGHCAPACITYBARRELS in upgrades
                     ):
                         bonus_damage_per_upgrade += 5
                     # TODO buffs e.g. void ray charge beam vs armored
-                    boni.append(bonus.bonus + self.attack_upgrade_level * bonus_damage_per_upgrade)
+                    boni.append(bonus.bonus + attack_upgrade_level * bonus_damage_per_upgrade)
             if boni:
                 damage_per_attack += max(boni)
 
@@ -773,7 +790,7 @@ class Unit:
                 enemy_shield = max(0, enemy_shield)
             total_damage_dealt = target.health + target.shield - enemy_health - enemy_shield
             # Unit modifiers: buffs and upgrades that affect weapon speed and weapon range
-            if self.type_id in {
+            if unit_type in {
                 UnitTypeId.ZERGLING,
                 UnitTypeId.MARINE,
                 UnitTypeId.MARAUDER,
@@ -785,43 +802,43 @@ class Unit:
                 UnitTypeId.AUTOTURRET,
             }:
                 if (
-                    self.type_id == UnitTypeId.ZERGLING
+                    unit_type == UnitTypeId.ZERGLING
                     # Attack speed calculation only works for our unit
-                    and self.is_mine
-                    and UpgradeId.ZERGLINGATTACKSPEED in self._bot_object.state.upgrades
+                    and is_mine
+                    and UpgradeId.ZERGLINGATTACKSPEED in upgrades
                 ):
                     # 0.696044921875 for zerglings divided through 1.4 equals (+40% attack speed bonus from the upgrade):
                     weapon_speed /= 1.4
                 elif (
                     # Adept ereceive 45% attack speed bonus from glaives
-                    self.type_id == UnitTypeId.ADEPT
-                    and self.is_mine
-                    and UpgradeId.ADEPTPIERCINGATTACK in self._bot_object.state.upgrades
+                    unit_type == UnitTypeId.ADEPT
+                    and is_mine
+                    and UpgradeId.ADEPTPIERCINGATTACK in upgrades
                 ):
-                    # TODO next patch: if self.type_id is adept: check if attack speed buff is active, instead of upgrade
+                    # TODO next patch: if unit_type is adept: check if attack speed buff is active, instead of upgrade
                     weapon_speed /= 1.45
-                elif self.type_id == UnitTypeId.MARINE and BuffId.STIMPACK in self.buffs:
+                elif BuffId.STIMPACK in buffs:
                     # Marine and marauder receive 50% attack speed bonus from stim
                     weapon_speed /= 1.5
-                elif self.type_id == UnitTypeId.MARAUDER and BuffId.STIMPACKMARAUDER in self.buffs:
+                elif BuffId.STIMPACKMARAUDER in buffs:
                     weapon_speed /= 1.5
                 elif (
                     # TODO always assume that the enemy has the range upgrade researched
-                    self.type_id == UnitTypeId.HYDRALISK
-                    and self.is_mine
-                    and UpgradeId.EVOLVEGROOVEDSPINES in self._bot_object.state.upgrades
+                    unit_type == UnitTypeId.HYDRALISK
+                    and is_mine
+                    and UpgradeId.EVOLVEGROOVEDSPINES in upgrades
                 ):
                     weapon_range += 1
                 elif (
-                    self.type_id == UnitTypeId.PHOENIX
-                    and self.is_mine
-                    and UpgradeId.PHOENIXRANGEUPGRADE in self._bot_object.state.upgrades
+                    unit_type == UnitTypeId.PHOENIX
+                    and is_mine
+                    and UpgradeId.PHOENIXRANGEUPGRADE in upgrades
                 ):
                     weapon_range += 2
                 elif (
-                    self.type_id in {UnitTypeId.PLANETARYFORTRESS, UnitTypeId.MISSILETURRET, UnitTypeId.AUTOTURRET}
-                    and self.is_mine
-                    and UpgradeId.HISECAUTOTRACKING in self._bot_object.state.upgrades
+                    unit_type in {UnitTypeId.PLANETARYFORTRESS, UnitTypeId.MISSILETURRET, UnitTypeId.AUTOTURRET}
+                    and is_mine
+                    and UpgradeId.HISECAUTOTRACKING in upgrades
                 ):
                     weapon_range += 1
 
@@ -873,6 +890,10 @@ class Unit:
         For supply depot, this returns 1
         For sensor tower, creep tumor, this return 0.5 """
         return self._bot_object._game_data.units[self._proto.unit_type].creation_ability._proto.footprint_radius
+
+    @property
+    def building_size(self) -> int:
+        return int(self.footprint_radius*2)
 
     @property
     def radius(self) -> float:
@@ -933,13 +954,29 @@ class Unit:
     @property
     def detect_range(self) -> float:
         """ Returns the detection distance of the unit. """
-        return self._proto.detect_range
+        try:
+            return DETECT_RANGE_DICT[self.type_id]
+        except KeyError:
+            return self._proto.detect_range
 
     @property_immutable_cache
     def is_detector(self) -> bool:
         """ Checks if the unit is a detector. Has to be completed
         in order to detect and Photoncannons also need to be powered. """
-        return self.is_ready and (self.type_id in IS_DETECTOR or self.type_id == UNIT_PHOTONCANNON and self.is_powered)
+        unit_type = self.type_id
+        return (
+            unit_type in IS_DETECTOR_UNIT or
+            (
+                self.is_ready and
+                (
+                    unit_type in IS_DETECTOR_STRUCTURE or
+                    (
+                        unit_type == UNIT_PHOTONCANNON and
+                        self.is_powered
+                    )
+                )
+            )
+        )
 
     @property
     def radar_range(self) -> float:
@@ -1055,7 +1092,7 @@ class Unit:
     @property
     def noqueue(self) -> bool:
         """ Checks if the unit is idle. """
-        warnings.warn("noqueue will be removed soon, please use is_idle instead", DeprecationWarning, stacklevel=2)
+        warn("noqueue will be removed soon, please use is_idle instead", DeprecationWarning, stacklevel=2)
         return self.is_idle
 
     @property
@@ -1232,6 +1269,22 @@ class Unit:
         return -1
 
     @property
+    def max_cooldown(self) -> float:
+        return self._bot_object.max_cooldown_units[self.type_id]
+
+    @property
+    def on_half_cooldown(self) -> bool:
+        return self.weapon_cooldown*2 <= self.max_cooldown
+
+    @property
+    def on_cooldown(self) -> bool:
+        return self.weapon_cooldown > 0
+
+    @property
+    def weapon_ready(self) -> bool:
+        return self.weapon_cooldown == 0
+
+    @property
     def engaged_target_tag(self) -> int:
         # TODO What does this do?
         return self._proto.engaged_target_tag
@@ -1298,6 +1351,12 @@ class Unit:
         :param upgrade:
         :param queue:
         """
+        if upgrade in {
+                UpgradeId.TERRANVEHICLEANDSHIPARMORSLEVEL1,
+                UpgradeId.TERRANVEHICLEANDSHIPARMORSLEVEL2,
+                UpgradeId.TERRANVEHICLEANDSHIPARMORSLEVEL3,
+            }:
+            return self(AbilityId.RESEARCH_TERRANVEHICLEANDSHIPPLATING, queue=queue)
         return self(self._bot_object._game_data.upgrades[upgrade.value].research_ability.exact_id, queue=queue)
 
     def warp_in(self, unit: UnitTypeId, position: Union[Point2, Point3]) -> UnitCommand:

@@ -1,11 +1,11 @@
-import logging
+from logging import getLogger
 import os
 import platform
 import re
 import subprocess
 from pathlib import Path
 
-logger = logging.getLogger(__name__)
+logger = getLogger(__name__)
 
 BASEDIR = {
     "Windows": "C:/Program Files (x86)/StarCraft II",

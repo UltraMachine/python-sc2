@@ -1,11 +1,11 @@
-import logging
+from logging import getLogger
 
 from s2clientprotocol import sc2api_pb2 as sc_pb
 
 from .player import Computer
 from .protocol import Protocol
 
-logger = logging.getLogger(__name__)
+logger = getLogger(__name__)
 
 
 class Controller(Protocol):
@@ -39,7 +39,13 @@ class Controller(Protocol):
 
     async def start_replay(self, replay_path, realtime, observed_id=0):  # Added
         ifopts = sc_pb.InterfaceOptions(
-            raw=True, score=True, show_cloaked=True, raw_affects_selection=False, raw_crop_to_playable_area=False
+            raw=True,
+            score=True,
+            show_cloaked=True,
+            show_burrowed_shadows=True,
+            show_placeholders=False,
+            raw_affects_selection=False,
+            raw_crop_to_playable_area=False,
         )
         req = sc_pb.RequestStartReplay(replay_path=replay_path, observed_player_id=observed_id, options=ifopts)
 

@@ -32,6 +32,11 @@ geyser_ids: Set[int] = {
     PURIFIERVESPENEGEYSER.value,
     SHAKURASVESPENEGEYSER.value,
 }
+inhibitor_ids: Set[int] = {
+    INHIBITORZONESMALL.value,
+    INHIBITORZONEMEDIUM.value,
+    INHIBITORZONELARGE.value,
+}
 transforming: Dict[UnitTypeId, AbilityId] = {
     # Terran structures
     BARRACKS: LAND_BARRACKS,
@@ -210,14 +215,20 @@ IS_CONSTRUCTING_SCV: Set[AbilityId] = {
     AbilityId.TERRANBUILD_SUPPLYDEPOT,
 }
 IS_REPAIRING: Set[AbilityId] = {AbilityId.EFFECT_REPAIR, AbilityId.EFFECT_REPAIR_MULE, AbilityId.EFFECT_REPAIR_SCV}
-IS_DETECTOR: Set[UnitTypeId] = {
+IS_DETECTOR_STRUCTURE: Set[UnitTypeId] = {
+    UnitTypeId.MISSILETURRET,
+    UnitTypeId.SPORECRAWLER,
+}
+IS_DETECTOR_UNIT: Set[UnitTypeId] = {    
     UnitTypeId.OBSERVER,
     UnitTypeId.OBSERVERSIEGEMODE,
     UnitTypeId.RAVEN,
-    UnitTypeId.MISSILETURRET,
     UnitTypeId.OVERSEER,
     UnitTypeId.OVERSEERSIEGEMODE,
-    UnitTypeId.SPORECRAWLER,
+}
+DETECT_RANGE_DICT: Dict[UnitTypeId, float] = {
+    UnitTypeId.OBSERVER: 11.0,
+    UnitTypeId.OBSERVERSIEGEMODE: 13.75,
 }
 SPEED_UPGRADE_DICT: Dict[UnitTypeId, UpgradeId] = {
     # Terran

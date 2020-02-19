@@ -2,7 +2,7 @@ from __future__ import annotations
 from collections import deque
 from typing import Any, Deque, Dict, FrozenSet, Generator, List, Optional, Sequence, Set, Tuple, Union, TYPE_CHECKING
 
-import numpy as np
+from numpy import unique, ndenumerate
 from math import sqrt
 
 from .cache import property_immutable_cache, property_mutable_cache
@@ -255,13 +255,13 @@ class GameInfo:
         def equal_height_around(tile):
             # mask to slice array 1 around tile
             sliced = self.terrain_height.data_numpy[tile[1] - 1 : tile[1] + 2, tile[0] - 1 : tile[0] + 2]
-            return len(np.unique(sliced)) == 1
+            return len(unique(sliced)) == 1
 
         map_area = self.playable_area
         # all points in the playable area that are pathable but not placable
         points = [
             Point2((a, b))
-            for (b, a), value in np.ndenumerate(self.pathing_grid.data_numpy)
+            for (b, a), value in ndenumerate(self.pathing_grid.data_numpy)
             if value == 1
             and map_area.x <= a < map_area.x + map_area.width
             and map_area.y <= b < map_area.y + map_area.height

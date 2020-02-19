@@ -1,8 +1,18 @@
 from __future__ import annotations
-import itertools
-import math
-import random
-from typing import Any, Dict, List, Optional, Set, Tuple, Union, Iterable, TYPE_CHECKING
+from itertools import zip_longest
+from math import (
+    copysign,
+    hypot,
+    inf,
+    floor,
+    pi,
+    cos,
+    sin,
+    atan2,
+    sqrt,
+)
+from random import random
+from typing import List, Set, Tuple, Union, Iterable, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from .unit import Unit
@@ -12,7 +22,7 @@ EPSILON = 10 ** -8
 
 
 def _sign(num):
-    return math.copysign(1, num)
+    return copysign(1, num)
 
 
 class Pointlike(tuple):
@@ -25,14 +35,14 @@ class Pointlike(tuple):
 
         :param target: """
         p = target.position
-        return math.hypot(self[0] - p[0], self[1] - p[1])
+        return hypot(self[0] - p[0], self[1] - p[1])
 
     def distance_to_point2(self, p: Union[Point2, Tuple[float, float]]) -> Union[int, float]:
         """ Same as the function above, but should be a bit faster because of the dropped asserts
         and conversion.
 
         :param p: """
-        return math.hypot(self[0] - p[0], self[1] - p[1])
+        return hypot(self[0] - p[0], self[1] - p[1])
 
     def _distance_squared(self, p2: Point2) -> Union[int, float]:
         """ Function used to not take the square root as the distances will stay proportionally the same.
@@ -78,7 +88,7 @@ class Pointlike(tuple):
         """ This function assumes the 2d distance is meant
         :param ps: """
         assert ps, f"ps is empty"
-        closest_distance = math.inf
+        closest_distance = inf
         for p2 in ps:
             p2 = p2.position
             distance = self.distance_to(p2)
@@ -98,7 +108,7 @@ class Pointlike(tuple):
 
         :param ps: """
         assert ps, f"ps is empty"
-        furthest_distance = -math.inf
+        furthest_distance = -inf
         for p2 in ps:
             p2 = p2.position
             distance = self.distance_to(p2)
@@ -111,14 +121,14 @@ class Pointlike(tuple):
 
         :param p:
         """
-        return self.__class__(a + b for a, b in itertools.zip_longest(self, p[: len(self)], fillvalue=0))
+        return self.__class__(a + b for a, b in zip_longest(self, p[: len(self)], fillvalue=0))
 
     def unit_axes_towards(self, p):
         """
 
         :param p:
         """
-        return self.__class__(_sign(b - a) for a, b in itertools.zip_longest(self, p[: len(self)], fillvalue=0))
+        return self.__class__(_sign(b - a) for a, b in zip_longest(self, p[: len(self)], fillvalue=0))
 
     def towards(self, p: Union[Unit, Pointlike], distance: Union[int, float] = 1, limit: bool = False) -> Pointlike:
         """
@@ -137,12 +147,12 @@ class Pointlike(tuple):
         if limit:
             distance = min(d, distance)
         return self.__class__(
-            a + (b - a) / d * distance for a, b in itertools.zip_longest(self, p[: len(self)], fillvalue=0)
+            a + (b - a) / d * distance for a, b in zip_longest(self, p[: len(self)], fillvalue=0)
         )
 
     def __eq__(self, other):
         try:
-            return all(abs(a - b) <= EPSILON for a, b in itertools.zip_longest(self, other, fillvalue=0))
+            return all(abs(a - b) <= EPSILON for a, b in zip_longest(self, other, fillvalue=0))
         except:
             return False
 
@@ -160,7 +170,7 @@ class Point2(Pointlike):
 
     @property
     def rounded(self) -> Point2:
-        return Point2((math.floor(self[0]), math.floor(self[1])))
+        return Point2((floor(self[0]), floor(self[1])))
 
     @property
     def tuple(self) -> tuple:
@@ -177,7 +187,7 @@ class Point2(Pointlike):
     @property
     def length(self) -> float:
         """ This property exists in case Point2 is used as a vector. """
-        return math.hypot(self[0], self[1])
+        return hypot(self[0], self[1])
 
     @property
     def normalized(self) -> Point2:
@@ -208,24 +218,24 @@ class Point2(Pointlike):
 
     def random_on_distance(self, distance):
         if isinstance(distance, (tuple, list)):  # interval
-            distance = distance[0] + random.random() * (distance[1] - distance[0])
+            distance = distance[0] + random() * (distance[1] - distance[0])
 
         assert distance > 0, f"Distance is not greater than 0"
-        angle = random.random() * 2 * math.pi
+        angle = random() * 2 * pi
 
-        dx, dy = math.cos(angle), math.sin(angle)
+        dx, dy = cos(angle), sin(angle)
         return Point2((self.x + dx * distance, self.y + dy * distance))
 
     def towards_with_random_angle(
         self,
         p: Union[Point2, Point3],
         distance: Union[int, float] = 1,
-        max_difference: Union[int, float] = (math.pi / 4),
+        max_difference: Union[int, float] = (pi / 4),
     ) -> Point2:
         tx, ty = self.to2.towards(p.to2, 1)
-        angle = math.atan2(ty - self.y, tx - self.x)
-        angle = (angle - max_difference) + max_difference * 2 * random.random()
-        return Point2((self.x + math.cos(angle) * distance, self.y + math.sin(angle) * distance))
+        angle = atan2(ty - self.y, tx - self.x)
+        angle = (angle - max_difference) + max_difference * 2 * random()
+        return Point2((self.x + cos(angle) * distance, self.y + sin(angle) * distance))
 
     def circle_intersection(self, p: Point2, r: Union[int, float]) -> Set[Point2]:
         """ self is point1, p is point2, r is the radius for circles originating in both points
@@ -237,7 +247,7 @@ class Point2(Pointlike):
         halfDistanceBetweenPoints = self.distance_to(p) / 2
         assert r >= halfDistanceBetweenPoints
         # remaining distance from center towards the intersection, using pythagoras
-        remainingDistanceFromCenter = math.sqrt(r * r - halfDistanceBetweenPoints * halfDistanceBetweenPoints)
+        remainingDistanceFromCenter = sqrt(r * r - halfDistanceBetweenPoints * halfDistanceBetweenPoints)
         # center of both points
         offsetToCenter = Point2(((p.x - self.x) / 2, (p.y - self.y) / 2))
         center = self.offset(offsetToCenter)
@@ -285,7 +295,7 @@ class Point2(Pointlike):
         return self.__class__(-a for a in self)
 
     def __abs__(self) -> Union[int, float]:
-        return math.hypot(self.x, self.y)
+        return hypot(self.x, self.y)
 
     def __bool__(self) -> bool:
         return self.x != 0 or self.y != 0
@@ -338,7 +348,7 @@ class Point3(Point2):
 
     @property
     def rounded(self) -> Point3:
-        return Point3((math.floor(self[0]), math.floor(self[1]), math.floor(self[2])))
+        return Point3((floor(self[0]), floor(self[1]), floor(self[2])))
 
     @property
     def z(self) -> Union[int, float]:

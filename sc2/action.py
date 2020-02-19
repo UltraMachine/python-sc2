@@ -53,6 +53,14 @@ def combine_actions(action_iter):
                     queue_command=queue,
                     target_unit_tag=target.tag,
                 )
+            # Combine actions with target unit tag
+            elif isinstance(target, int):
+                cmd = raw_pb.ActionRawUnitCommand(
+                    ability_id=ability.value,
+                    unit_tags={u.unit.tag for u in items},
+                    queue_command=queue,
+                    target_unit_tag=target,
+                )
             else:
                 raise RuntimeError(f"Must target a unit, point or None, found '{target !r}'")
 
@@ -90,6 +98,16 @@ def combine_actions(action_iter):
                         unit_tags={u.unit.tag},
                         queue_command=queue,
                         target_unit_tag=target.tag,
+                    )
+                    yield raw_pb.ActionRaw(unit_command=cmd)
+
+            elif isinstance(target, int):
+                for u in items:
+                    cmd = raw_pb.ActionRawUnitCommand(
+                        ability_id=ability.value,
+                        unit_tags={u.unit.tag},
+                        queue_command=queue,
+                        target_unit_tag=target,
                     )
                     yield raw_pb.ActionRaw(unit_command=cmd)
             else:
