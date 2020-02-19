@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.com/BurnySc2/python-sc2.svg?branch=develop)](https://travis-ci.com/BurnySc2/python-sc2)
+[![Actions Status](https://github.com/BurnySc2/python-sc2/workflows/Tests/badge.svg)](https://github.com/BurnySc2/python-sc2/actions)
 
 # A StarCraft II API Client for Python 3
 
@@ -41,14 +41,19 @@ Maps that are run on the [SC2 AI Ladder](http://sc2ai.net/) and [SC2 AI Arena](h
 
 After installing the library, a StarCraft II executable, and some maps, you're ready to get started. Simply run a bot file to fire up an instance of StarCraft II with the bot running. For example:
 
-```
+```python
 python3 examples/protoss/cannon_rush.py
 ```
 
-If you installed StarCraft II on Linux with Wine, set the `SC2PF` environment variable to `WineLinux`:
+If you installed StarCraft II on Linux with Wine or Lutris, set the following environment variables (either globally or within your development environment, e.g. Pycharm: `Run -> Edit Configurations -> Environment Variables`):
 
-```
-SC2PF=WineLinux python3 examples/protoss/cannon_rush.py
+```sh
+SC2PF=WineLinux
+WINE=usr/bin/wine
+# Or a wine binary from lutris:
+# WINE=/home/burny/.local/share/lutris/runners/wine/lutris-4.20-x86_64/bin/wine64
+# Default Lutris StarCraftII Installation path:
+SC2PATH=/home/burny/Games/battlenet/drive_c/Program Files (x86)/StarCraft II/
 ```
 
 ## Example
@@ -75,6 +80,41 @@ run_game(maps.get("Abyssal Reef LE"), [
 This is probably the simplest bot that has any realistic chances of winning the game. I have ran it against the medium AI a few times, and once in a while, it wins.
 
 You can find more examples in the [`examples/`](/examples) folder.
+
+## API Configuration Options
+
+The API supports a number of options for configuring how it operates.
+
+### `raw_affects_selection`
+Setting this to true improves bot performance by a little bit.
+```python
+class MyBot(sc2.BotAI):
+    def __init__(self):
+        self.raw_affects_selection = True
+```
+
+### `distance_calculation_method`
+The distance calculation method:
+- 0 for raw python
+- 1 for scipy pdist
+- 2 for scipy cdist
+```python
+class MyBot(sc2.BotAI):
+    def __init__(self):
+        self.distance_calculation_method = 2
+```
+
+### `game_step`
+On game start or in any frame actually, you can set the game step. This controls how often your bot's `step` method is called.  
+__Do not set this in the \_\_init\_\_ function as the client will not have been initialized yet!__
+```python
+class MyBot(sc2.BotAI):
+    def __init__(self):
+        pass  # don't set it here!
+
+    async def on_start(self):
+        self.client.game_step = 2
+```
 
 ## Community - Help and support
 

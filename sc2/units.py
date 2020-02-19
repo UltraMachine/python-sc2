@@ -164,7 +164,6 @@ class Units(list):
         Example::
 
             enemy_zerglings = self.enemy_units(UnitTypeId.ZERGLING)
-            my_marine = next(unit for unit in self.units if unit.type_id == UnitTypeId.MARINE)
             my_marine = next((unit for unit in self.units if unit.type_id == UnitTypeId.MARINE), None)
             if my_marine:
                 closest_zergling_distance = enemy_zerglings.closest_distance_to(my_marine)
@@ -256,7 +255,6 @@ class Units(list):
         :param distance:
         :param position:
         """
-        # assert self, "Units object is empty"
         if isinstance(position, Unit):
             distance_squared = distance * distance
             return self.subgroup(
@@ -283,7 +281,6 @@ class Units(list):
         :param distance:
         :param position:
         """
-        # assert self, "Units object is empty"
         if isinstance(position, Unit):
             distance_squared = distance * distance
             return self.subgroup(
@@ -294,10 +291,8 @@ class Units(list):
         distances = self._bot_object._distance_units_to_pos(self, position)
         return self.subgroup(unit for unit, dist in zip(self, distances) if distance < dist)
 
-    def nearby(self, distance: int, target_unit: Unit) -> Units:
+    def closer_unit(self, distance: int, target_unit: Unit) -> Units:
         """
-        The same as "closer_than" but should be a bit faster because it takes only Unit as argument.
-
         :param distance:
         :param target_unit:
         """
@@ -308,10 +303,16 @@ class Units(list):
             if self._bot_object._distance_squared_unit_to_unit(unit, target_unit) < distance_squared
         )
 
-    def faraway(self, distance: int, target_unit: Unit) -> Units:
+    def closer_pos(self, distance: int, target_pos: Union[Point2, Point3]) -> Units:
         """
-        The same as "further_than" but should be a bit faster because it takes only Unit as argument.
+        :param distance:
+        :param target_pos:
+        """
+        distances = self._bot_object._distance_units_to_pos(self, target_pos)
+        return self.subgroup(unit for unit, dist in zip(self, distances) if dist < distance)
 
+    def further_unit(self, distance: int, target_unit: Unit) -> Units:
+        """
         :param distance:
         :param target_unit:        
         """
@@ -321,6 +322,14 @@ class Units(list):
             for unit in self
             if distance_squared < self._bot_object._distance_squared_unit_to_unit(unit, target_unit)
         )
+
+    def further_pos(self, distance: int, target_pos: Union[Point2, Point3]) -> Units:
+        """
+        :param distance:
+        :param target_pos:        
+        """
+        distances = self._bot_object._distance_units_to_pos(self, target_pos)
+        return self.subgroup(unit for unit, dist in zip(self, distances) if distance < dist)
 
     def in_distance_between(
         self, position: Union[Unit, Point2, Tuple[float, float]], distance1: float, distance2: float
@@ -340,7 +349,8 @@ class Units(list):
         :param distance1:
         :param distance2:
         """
-        assert self, "Units object is empty"
+        if not self:
+            return self
         if isinstance(position, Unit):
             distance1_squared = distance1 * distance1
             distance2_squared = distance2 * distance2
@@ -369,7 +379,8 @@ class Units(list):
         :param position:
         :param n:
         """
-        assert self, "Units object is empty"
+        if not self:
+            return self
         return self.subgroup(self._list_sorted_by_distance_to(position)[:n])
 
     def furthest_n_units(self, position: Union[Unit, Point2, np.ndarray], n: int) -> Units:
@@ -387,7 +398,8 @@ class Units(list):
         :param position:
         :param n:
         """
-        assert self, "Units object is empty"
+        if not self:
+            return self
         return self.subgroup(self._list_sorted_by_distance_to(position)[-n:])
 
     def in_distance_of_group(self, other_units: Units, distance: float) -> Units:
@@ -643,10 +655,7 @@ class Units(list):
         assert self, f"Units object is empty"
         amount = self.amount
         return Point2(
-            (
-                sum(unit.position_tuple[0] for unit in self) / amount,
-                sum(unit.position_tuple[1] for unit in self) / amount,
-            )
+            (sum(unit._proto.pos.x for unit in self) / amount, sum(unit._proto.pos.y for unit in self) / amount,)
         )
 
     @property

@@ -39,6 +39,12 @@ from .constants import (
     IS_DETECTOR,
     UNIT_PHOTONCANNON,
     UNIT_COLOSSUS,
+    SPEED_INCREASE_DICT,
+    SPEED_UPGRADE_DICT,
+    SPEED_INCREASE_ON_CREEP_DICT,
+    OFF_CREEP_SPEED_UPGRADE_DICT,
+    OFF_CREEP_SPEED_INCREASE_DICT,
+    SPEED_ALTERING_BUFFS,
 )
 from .data import (
     Alliance,
@@ -58,8 +64,6 @@ from .ids.upgrade_id import UpgradeId
 from .ids.unit_typeid import UnitTypeId
 from .position import Point2, Point3
 from .unit_command import UnitCommand
-
-warnings.simplefilter("once")
 
 if TYPE_CHECKING:
     from .bot_ai import BotAI
@@ -119,6 +123,11 @@ class Unit:
     def _type_data(self) -> UnitTypeData:
         """ Provides the unit type data. """
         return self._bot_object._game_data.units[self._proto.unit_type]
+
+    @property_immutable_cache
+    def _creation_ability(self) -> AbilityData:
+        """ Provides the AbilityData of the creation ability of this unit. """
+        return self._bot_object._game_data.units[self._proto.unit_type].creation_ability
 
     @property
     def name(self) -> str:
@@ -201,11 +210,7 @@ class Unit:
     @property_immutable_cache
     def can_attack_both(self) -> bool:
         """ Checks if the unit can attack both ground and air units. """
-        if self.type_id == UNIT_BATTLECRUISER:
-            return True
-        if self._weapons:
-            return any(weapon.type in TARGET_BOTH for weapon in self._weapons)
-        return False
+        return self.can_attack_ground and self.can_attack_air
 
     @property_immutable_cache
     def can_attack_ground(self) -> bool:
@@ -293,8 +298,58 @@ class Unit:
     @property
     def movement_speed(self) -> float:
         """ Returns the movement speed of the unit. Does not include upgrades or buffs. """
-        # TODO: use bot object to calculate if unit is zerg unit and if it is on creep, and if it your own unit: check for movement speed upgrades (e.g. zergling, hydra, ultralisk) or buffs (stimpack, time warp slow, fungal), perhaps write a second property function for this
         return self._type_data._proto.movement_speed
+
+    @property
+    def real_speed(self) -> float:
+        return self.calculate_speed()
+
+    def calculate_speed(self, upgrades: Set[UpgradeId] = None) -> float:
+        """ Calculates the movement speed of the unit including buffs and upgrades.
+        Note: Upgrades only work with own units. Use "upgrades" param to set expected enemy upgrades.
+
+        :param upgrades: """
+        speed: float = self.movement_speed
+        unit_type: UnitTypeId = self.type_id
+
+        # ---- Upgrades ----
+        if upgrades is None and self.is_mine:
+            upgrades = self._bot_object.state.upgrades
+
+        if upgrades and unit_type in SPEED_UPGRADE_DICT:
+            upgrade_id: UpgradeId = SPEED_UPGRADE_DICT.get(unit_type, None)
+            if upgrade_id and upgrade_id in upgrades:
+                speed *= SPEED_INCREASE_DICT.get(unit_type, 1)
+
+        # ---- Creep ----
+        if unit_type in SPEED_INCREASE_ON_CREEP_DICT or unit_type in OFF_CREEP_SPEED_UPGRADE_DICT:
+            # On creep
+            x, y = self.position_tuple
+            if self._bot_object.state.creep[(int(x), int(y))]:
+                speed *= SPEED_INCREASE_ON_CREEP_DICT.get(unit_type, 1)
+
+            # Off creep upgrades
+            elif upgrades:
+                upgrade_id: UpgradeId = OFF_CREEP_SPEED_UPGRADE_DICT.get(unit_type, None)
+                if upgrade_id:
+                    speed *= OFF_CREEP_SPEED_INCREASE_DICT[unit_type]
+
+            # Ultralisk has passive ability "Frenzied" which makes it immune to speed altering buffs
+            if unit_type == UnitTypeId.ULTRALISK:
+                return speed
+
+        # ---- Buffs ----
+        # Hard reset movement speed: medivac boost, void ray charge
+        if self.buffs and unit_type in {UnitTypeId.MEDIVAC, UnitTypeId.VOIDRAY}:
+            if BuffId.MEDIVACSPEEDBOOST in self.buffs:
+                speed = self.movement_speed * 1.7
+            elif BuffId.VOIDRAYSWARMDAMAGEBOOST in self.buffs:
+                speed = self.movement_speed * 0.75
+
+        # Speed altering buffs, e.g. stimpack, zealot charge, concussive shell, time warp, fungal growth, inhibitor zone
+        for buff in self.buffs:
+            speed *= SPEED_ALTERING_BUFFS.get(buff, 1)
+        return speed
 
     @property
     def is_mineral_field(self) -> bool:
@@ -478,6 +533,15 @@ class Unit:
         if isinstance(p, Unit):
             return sqrt(self._bot_object._distance_squared_unit_to_unit(self, p))
         return self._bot_object.distance_math_hypot(self.position_tuple, p)
+
+    def distance_to_squared(self, p: Union[Unit, Point2, Point3]) -> float:
+        """ Using the 2d distance squared between self and p. Slightly faster than distance_to, so when filtering a lot of units, this function is recommended to be used.
+        To calculate the 3d distance, use unit.position3d.distance_to(p)
+
+        :param p: """
+        if isinstance(p, Unit):
+            return self._bot_object._distance_squared_unit_to_unit(self, p)
+        return self._bot_object.distance_math_hypot_squared(self.position_tuple, p)
 
     def target_in_range(self, target: Unit, bonus_distance: float = 0) -> bool:
         """ Checks if the target is in range.
@@ -800,6 +864,15 @@ class Unit:
             angle += pi * 2
         angle_difference = fabs(angle - self.facing)
         return angle_difference < angle_error
+
+    @property
+    def footprint_radius(self) -> float:
+        """ For structures only.
+        For townhalls this returns 2.5
+        For barracks, spawning pool, gateway, this returns 1.5
+        For supply depot, this returns 1
+        For sensor tower, creep tumor, this return 0.5 """
+        return self._bot_object._game_data.units[self._proto.unit_type].creation_ability._proto.footprint_radius
 
     @property
     def radius(self) -> float:
@@ -1192,7 +1265,10 @@ class Unit:
         :param position:
         :param queue:
         """
-        # TODO: add asserts to make sure "position" is not a Point2 or Point3 if "unit" is extractor / refinery / assimilator
+        if unit in {UnitTypeId.EXTRACTOR, UnitTypeId.ASSIMILATOR, UnitTypeId.REFINERY}:
+            assert isinstance(
+                position, Unit
+            ), f"When building the gas structure, the target needs to be a unit (the vespene geysir) not the position of the vespene geysir."
         return self(self._bot_object._game_data.units[unit.value].creation_ability.id, target=position, queue=queue)
 
     def build_gas(self, target_geyser: Unit, queue: bool = False) -> UnitCommand:
@@ -1205,8 +1281,10 @@ class Unit:
         :param target_geyser:
         :param queue:
         """
-        # TODO: add asserts to make sure "target_geyser" is not a Point2 or Point3
         gas_structure_type_id: UnitTypeId = race_gas[self._bot_object.race]
+        assert isinstance(
+            target_geysir, Unit
+        ), f"When building the gas structure, the target needs to be a unit (the vespene geysir) not the position of the vespene geysir."
         return self(
             self._bot_object._game_data.units[gas_structure_type_id.value].creation_ability.id,
             target=target_geyser,
@@ -1239,6 +1317,14 @@ class Unit:
         :param queue:
         """
         return self(AbilityId.ATTACK, target=target, queue=queue)
+
+    def smart(self, target: Union[Unit, Point2, Point3], queue: bool = False) -> UnitCommand:
+        """ Orders the smart command. Equivalent to a right-click order.
+
+        :param target:
+        :param queue:
+        """
+        return self(AbilityId.SMART, target=target, queue=queue)
 
     def gather(self, target: Unit, queue: bool = False) -> UnitCommand:
         """ Orders a unit to gather minerals or gas.

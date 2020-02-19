@@ -1,4 +1,5 @@
-name: Python
+# If you change the name, change the link on  the README.md for the badge too
+name: Tests
 
 # Help: https://help.github.com/en/actions/automating-your-workflow-with-github-actions/workflow-syntax-for-github-actions
 
@@ -179,7 +180,7 @@ jobs:
           cd ..
 
       - name: Publish to Github Pages
-        if: github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/convert-to-github-actions'
+        if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
         uses: JamesIves/github-pages-deploy-action@releases/v3
         with:
           ACCESS_TOKEN: ${{ secrets.ACCESS_TOKEN }}
@@ -222,7 +223,7 @@ jobs:
       - name: Publish package
         # continue-on-error: true
         # Upload files in dist/* directory
-        if: github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/convert-to-github-actions'
+        if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
         env:
           # Set env variables, 'twine' then uses these to upload to pypi
           TWINE_PASSWORD: ${{ secrets.pypi_password }}
