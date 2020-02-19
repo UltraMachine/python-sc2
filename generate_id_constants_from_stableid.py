@@ -83,6 +83,13 @@ def parse_data(data):
 
     abilities["SMART"] = 1
 
+    # fix for 4.10.1
+    upgrades['ENHANCEDSHOCKWAVES'] = 296
+    abilities['GHOSTACADEMYRESEARCH_RESEARCHENHANCEDSHOCKWAVES'] = 822
+
+    # fix for 4.11
+    abilities['TERRANBUILD_REFINERY'] = 320
+
     enums = {}
     enums["Units"] = units
     enums["Abilities"] = abilities
