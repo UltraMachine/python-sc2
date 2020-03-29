@@ -128,7 +128,10 @@ def generate_python_code(enums):
     idsdir.mkdir(exist_ok=True)
 
     with (idsdir / "__init__.py").open("w") as f:
-        initstring = f"__all__ = {[n.lower() for n in FILE_TRANSLATE.values()] !r}\n".replace("'", '"')
+        initstring = (
+            f"__all__ = {[n.lower() for n in FILE_TRANSLATE.values()] !r}\n".replace("'", '"')
+            +''.join(f'from .{f} import {e}\n' for f, e in zip(FILE_TRANSLATE.values(), ENUM_TRANSLATE.values()))
+        )
         f.write("\n".join([HEADER, initstring]))
 
     for name, body in enums.items():
